@@ -18,4 +18,12 @@ const auctionSchema = new Schema({
   estado: { type: String, enum: ['agendado', 'ativo', 'terminado'], default: 'agendado' }
 }, { timestamps: true });
 
+// Passo 4 — Índices para consultas de leilões
+
+// Listar leilões por estado, ordenados pela data de início
+auctionSchema.index({ estado: 1, iniciaEm: -1 });
+
+// Consultar os leilões criados por um produtor
+auctionSchema.index({ produtor: 1, iniciaEm: -1 });
+
 module.exports = model('Auction', auctionSchema);

@@ -13,4 +13,12 @@ const reviewSchema = new Schema({
   visivel: { type: Boolean, default: true }
 }, { timestamps: true });
 
+// Passo 4 — Índices para consultas de avaliações
+
+// Avaliações visíveis de um produtor, ordenadas por data
+reviewSchema.index({ produtor: 1, visivel: 1, createdAt: -1 });
+
+// Avaliações de um produto
+reviewSchema.index({ produto: 1, visivel: 1, createdAt: -1 });
+
 module.exports = model('Review', reviewSchema);

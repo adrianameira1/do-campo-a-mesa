@@ -17,7 +17,20 @@ const productSchema = new Schema({
   // TODO (Passo 4): avaliação média? índices para pesquisa?
 }, { timestamps: true });
 
-// TODO (Passo 4): criar índices adequados às pesquisas, p. ex.:
-// productSchema.index({ nome: 'text' });
+
+
+// Passo 4 — Índices para otimizar as consultas do catálogo
+
+// Produtos de um produtor, ordenados dos mais recentes para os mais antigos
+productSchema.index({ produtor: 1, createdAt: -1 });
+
+// Filtrar por categoria e preço
+productSchema.index({ categoria: 1, preco: 1 });
+
+// Listagem dos produtos mais recentes
+productSchema.index({ createdAt: -1 });
+
+// Ordenação e filtros por preço
+productSchema.index({ preco: 1 });
 
 module.exports = model('Product', productSchema);

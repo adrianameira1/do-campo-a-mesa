@@ -23,4 +23,12 @@ const orderSchema = new Schema({
 
 orderSchema.statics.ESTADOS = ESTADOS;
 
+// Passo 4 — Índices para consultas de encomendas
+
+// Histórico de encomendas de um comprador
+orderSchema.index({ comprador: 1, createdAt: -1 });
+
+// Encomendas recebidas por um produtor
+orderSchema.index({ produtor: 1, createdAt: -1 });
+
 module.exports = model('Order', orderSchema);
