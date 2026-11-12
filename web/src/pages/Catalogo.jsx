@@ -39,7 +39,16 @@ export default function Catalogo() {
           (!filtro.bio || p.biologico) &&
           (!filtro.epoca || p.epocas?.includes(filtro.epoca)) &&
           (filtro.precoMax === '' || p.preco <= Number(filtro.precoMax)) &&
-          p.nome.toLowerCase().includes(filtro.q.toLowerCase())
+          [
+            p.nome,
+            p.produtor?.nome,
+            p.produtor?.produtor?.nomeExploracao,
+            ...(p.ingredientes || [])
+          ]
+            .filter(Boolean)
+            .some((texto) =>
+              texto.toLowerCase().includes(filtro.q.trim().toLowerCase())
+            )
         )
         .sort((a, b) => {
           if (filtro.ordenar === 'preco_asc') return a.preco - b.preco;
@@ -115,7 +124,7 @@ export default function Catalogo() {
           id="pesquisa"
           type="search"
           className="form-control"
-          placeholder="Pesquisar kiwi, mel, Alvarinho…"
+          placeholder="Pesquisar produtos, ingredientes ou produtores..."
           value={filtro.q}
           onChange={mudar('q')}
         />

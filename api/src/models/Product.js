@@ -4,6 +4,10 @@ const productSchema = new Schema({
   produtor: { type: Types.ObjectId, ref: 'User', required: true },
   nome: { type: String, required: true, trim: true },
   descricao: { type: String, trim: true },
+  ingredientes: [{
+    type: String,
+    trim: true
+  }],
   categoria: {
     type: String,
     enum: ['Hortícolas', 'Fruta', 'Mel', 'Vinho', 'Queijo', 'Padaria', 'Outros'],

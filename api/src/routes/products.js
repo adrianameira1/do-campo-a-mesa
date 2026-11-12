@@ -37,12 +37,24 @@ router.get('/', async (req, res, next) => {
 
     const filtro = {};
 
-    // Pesquisa pelo nome
-    if (q) {
-      filtro.nome = {
-        $regex: escaparRegex(String(q)),
-        $options: 'i'
-      };
+    // Pesquisa pelo nome do produto, ingrediente ou produtor
+    if (typeof q === 'string' && q.trim()) {
+      const regex = new RegExp(escaparRegex(q.trim()), 'i');
+
+      const produtoresEncontrados = await User.find({
+        papel: 'produtor',
+        'produtor.validado': true,
+        $or: [
+          { nome: regex },
+          { 'produtor.nomeExploracao': regex }
+        ]
+      }).distinct('_id');
+
+      filtro.$or = [
+        { nome: regex },
+        { ingredientes: regex },
+        { produtor: { $in: produtoresEncontrados } }
+      ];
     }
 
     // Categoria
@@ -137,9 +149,10 @@ router.post('/', auth('produtor'), async (req, res, next) => {
     }
 
     // Apenas campos permitidos podem vir do pedido
-   const {
+    const {
       nome,
       descricao,
+      ingredientes,
       categoria,
       preco,
       unidade,
@@ -152,6 +165,7 @@ router.post('/', auth('produtor'), async (req, res, next) => {
       produtor: produtor._id,
       nome,
       descricao,
+      ingredientes,
       categoria,
       preco,
       unidade,
@@ -180,6 +194,7 @@ router.put('/:id', auth('produtor'), async (req, res, next) => {
     const camposPermitidos = [
       'nome',
       'descricao',
+      'ingredientes',
       'categoria',
       'preco',
       'unidade',

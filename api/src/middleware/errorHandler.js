@@ -22,10 +22,19 @@ module.exports = (err, req, res, next) => {
     });
   }
 
-  // Identificadores ou tipos inválidos do Mongoose
+  // Erros de conversão de tipos do Mongoose
   if (err.name === 'CastError') {
+    if (err.kind === 'ObjectId') {
+      return res.status(400).json({
+        erro: 'Identificador inválido'
+      });
+    }
+
     return res.status(400).json({
-      erro: 'Identificador inválido'
+      erro: 'Dados inválidos',
+      detalhes: [
+        `Formato inválido para o campo "${err.path}"`
+      ]
     });
   }
 
