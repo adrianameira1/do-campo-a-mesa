@@ -93,61 +93,79 @@ export default function Produtor() {
           Voltar ao catálogo
         </Link>
       </div>
-
       <section className="card p-3 p-md-4 mb-4">
-        <p className="texto-secundario small mb-2">
-          Produtor local
-        </p>
+        <div className="row g-4 align-items-center">
+          <div className={urlMapa ? 'col-12 col-lg-6' : 'col-12'}>
+            <p className="texto-secundario small mb-2">
+              Produtor local
+            </p>
 
-        <h1 className="mb-3">{nomeExploracao}</h1>
+            <h1 className="mb-3">{nomeExploracao}</h1>
 
-        {descricao && <p className="mb-3">{descricao}</p>}
+            {descricao && <p className="mb-3">{descricao}</p>}
 
-        {localidade && (
-          <p className="mb-2">
-            <strong>Localidade:</strong> {localidade}
-          </p>
-        )}
+            {localidade && (
+              <p className="mb-2">
+                <strong>Localidade:</strong> {localidade}
+              </p>
+            )}
 
-        <p className="mb-2">
-          <strong>Avaliação média:</strong>{' '}
-          {avaliacaoMedia === null
-            ? 'Ainda sem avaliações'
-            : `${Number(avaliacaoMedia).toLocaleString('pt-PT', {
-                maximumFractionDigits: 2
-              })} / 5`}
-        </p>
-
-        {urlMapa && (
-          <div className="mt-3">
-            <h2 className="h5 mb-3">Localização</h2>
-
-            <div className="ratio ratio-16x9 rounded overflow-hidden border">
-              <iframe
-                title={`Mapa da localização de ${nomeExploracao}`}
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${
-                  localizacao.lng - 0.025
-                },${localizacao.lat - 0.015},${
-                  localizacao.lng + 0.025
-                },${localizacao.lat + 0.015}&layer=mapnik&marker=${
-                  localizacao.lat
-                },${localizacao.lng}`}
-                loading="lazy"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-
-            <a
-              href={urlMapa}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-outline-success btn-sm mt-3"
-            >
-              Abrir mapa
-            </a>
+            <p className="mb-2">
+              <strong>Avaliação média:</strong>{' '}
+              {avaliacaoMedia === null
+                ? 'Ainda sem avaliações'
+                : `${Number(avaliacaoMedia).toLocaleString('pt-PT', {
+                    maximumFractionDigits: 2
+                  })} / 5`}
+            </p>
           </div>
-        )}
+
+          {urlMapa && (
+            <div className="col-12 col-lg-6">
+              <h2 className="h5 mb-2">Localização</h2>
+
+              <div
+                className="rounded overflow-hidden border"
+                style={{ height: '250px' }}
+              >
+                <iframe
+                  title={`Mapa da localização de ${nomeExploracao}`}
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${
+                    localizacao.lng - 0.025
+                  },${localizacao.lat - 0.015},${
+                    localizacao.lng + 0.025
+                  },${localizacao.lat + 0.015}&layer=mapnik&marker=${
+                    localizacao.lat
+                  },${localizacao.lng}`}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    border: 0
+                  }}
+                />
+              </div>
+
+              <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2">
+                <span className="texto-secundario small">
+                  Localização aproximada
+                </span>
+
+                <a
+                  href={urlMapa}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-outline-success btn-sm"
+                >
+                  Abrir mapa
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
       </section>
+
 
       <section aria-labelledby="titulo-produtos-produtor">
         <h2 id="titulo-produtos-produtor" className="h4 mb-3">
