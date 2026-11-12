@@ -50,15 +50,19 @@ As avaliações foram mantidas numa coleção independente, em vez de serem inco
 
 As licitações também são armazenadas numa coleção própria, uma vez que um leilão pode receber um elevado número de propostas. Esta separação permite consultar o histórico de licitações sem aumentar continuamente o tamanho do documento do leilão.
 
+
 ### 5.3. Índices e otimização das consultas
 
-Foram definidos 11 índices adicionais nos modelos Mongoose, distribuídos pelas coleções de produtos, encomendas, avaliações, leilões e licitações.
+Foram definidos 12 índices adicionais nos modelos Mongoose, distribuídos pelas coleções de produtos, encomendas, avaliações, leilões e licitações.
 
 Nos produtos, os índices permitem apoiar consultas por produtor, categoria, preço e data de criação. Nas encomendas, foram criados índices compostos para consultar o histórico de cada comprador e as encomendas recebidas por cada produtor, ordenadas por data.
 
-Nas avaliações, os índices combinam o produtor ou produto com a visibilidade e a data de criação. Nos leilões, apoiam a consulta por estado, produtor e data de início. Nas licitações, um índice composto permite consultar as propostas de um leilão por ordem cronológica decrescente, utilizando o identificador como critério adicional de ordenação.
+Nas avaliações, os índices combinam o produtor ou produto com a visibilidade e a data de criação. Foi também criado um índice único composto pelos campos `autor` e `encomenda`, com um filtro parcial para documentos que possuem uma referência válida à encomenda. Este índice impede que o mesmo comprador registe mais do que uma avaliação para a mesma encomenda, reforçando a integridade dos dados.
+
+Nos leilões, os índices apoiam a consulta por estado, produtor e data de início. Nas licitações, um índice composto permite consultar as propostas de um leilão por ordem cronológica decrescente, utilizando o identificador como critério adicional de ordenação.
 
 A criação dos índices foi confirmada no MongoDB Atlas através do separador *Indexes*. A sua existência não garante que sejam utilizados em todas as consultas, uma vez que o MongoDB seleciona o plano de execução de acordo com os dados disponíveis e as características da pesquisa.
+
 
 ### 5.4. Validação e consistência dos dados
 
