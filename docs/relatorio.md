@@ -16,7 +16,27 @@
 
 ## 4. API REST e documentação
 
-[Recursos, verbos e códigos de estado; ligação para a Swagger UI.]
+A aplicação disponibiliza uma API REST desenvolvida com Node.js e Express, responsável pela comunicação entre o frontend React e a base de dados MongoDB Atlas. A API encontra-se organizada por recursos, utilizando os métodos HTTP GET, POST, PUT, PATCH e DELETE, conforme as operações disponibilizadas.
+
+Foram definidos endpoints para autenticação, produtos, produtores, encomendas, leilões, avaliações e administração, bem como um endpoint de verificação do estado da API. Os pedidos e respostas utilizam maioritariamente o formato JSON.
+
+As operações seguem os códigos de estado HTTP adequados a cada situação, incluindo 200 (sucesso), 201 (criação), 204 (operação concluída sem conteúdo), 400 (pedido inválido), 401 (autenticação necessária), 403 (acesso não autorizado), 404 (recurso não encontrado) e 409 (conflito). As funcionalidades ainda não implementadas são identificadas através do código 501.
+
+### 4.1. Documentação com OpenAPI e Swagger UI
+
+A API foi documentada através de uma especificação OpenAPI 3.0.3, definida no ficheiro `api/openapi.yaml` e disponibilizada através do Swagger UI, no endereço `http://localhost:3000/api-docs/` durante a execução local.
+
+A documentação abrange 28 operações REST, incluindo os parâmetros de pesquisa, estruturas dos pedidos e respostas, códigos HTTP, schemas reutilizáveis e requisitos de autenticação JWT. Os endpoints ainda não implementados são identificados explicitamente, de modo a distinguir as funcionalidades disponíveis das previstas para etapas posteriores.
+
+A especificação foi submetida à validação com Redocly CLI, não tendo sido identificados erros estruturais. Permaneceram oito avisos associados a aspetos de documentação e funcionalidades ainda em desenvolvimento.
+
+### 4.2. Testes realizados
+
+O funcionamento da documentação foi confirmado através do Swagger UI, com a execução de pedidos reais à API.
+
+Foi testada a consulta pública de produtos através de `GET /api/products`, obtendo-se uma resposta HTTP 200 com produtos armazenados no MongoDB Atlas. Foi também testada a consulta autenticada de encomendas através de `GET /api/orders`, utilizando um token JWT, com resposta HTTP 200.
+
+Estes testes permitiram confirmar a disponibilidade da interface Swagger, a comunicação com a API Express e o funcionamento da autenticação JWT na consulta de recursos protegidos.
 
 ## 5. Modelo de dados
 
