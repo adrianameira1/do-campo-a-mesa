@@ -51,6 +51,10 @@ As avaliações foram mantidas numa coleção independente, em vez de serem inco
 As licitações também são armazenadas numa coleção própria, uma vez que um leilão pode receber um elevado número de propostas. Esta separação permite consultar o histórico de licitações sem aumentar continuamente o tamanho do documento do leilão.
 
 
+Os produtos mantêm uma referência ao respetivo produtor, em vez de incorporarem os seus dados. Esta decisão evita a duplicação de informação, uma vez que um produtor pode disponibilizar vários produtos. Assim, alterações aos dados da exploração não exigem a atualização de todos os produtos associados.
+
+Nos leilões, a licitação atual é embebida no documento do próprio leilão, permitindo validar e atualizar o valor da proposta de forma atómica. Esta abordagem é fundamental para garantir a consistência das licitações concorrentes. O histórico completo permanece numa coleção independente (`bids`), evitando o crescimento ilimitado do documento do leilão.
+
 ### 5.3. Índices e otimização das consultas
 
 Foram definidos 12 índices adicionais nos modelos Mongoose, distribuídos pelas coleções de produtos, encomendas, avaliações, leilões e licitações.
