@@ -9,11 +9,15 @@ const registarSockets = require('./sockets');
 const PORT = process.env.PORT || 3000;
 
 async function iniciar() {
+  if (!process.env.CLIENT_URL) {
+    throw new Error('CLIENT_URL é obrigatória para configurar o CORS');
+  }
+
   await ligarBD();
 
   const server = http.createServer(app);
   const io = new Server(server, {
-    cors: { origin: process.env.CLIENT_URL || '*' }
+    cors: { origin: process.env.CLIENT_URL }
   });
 
   // Disponibiliza o io às rotas (ex.: notificar o comprador quando a encomenda muda)

@@ -158,6 +158,8 @@ Foram realizados testes de autenticação e autorização, incluindo tokens inv�
 
 No frontend, as sessões são mantidas no `localStorage`, o que permite conservar a autenticação após atualizar a página, mas exige especial atenção à prevenção de ataques XSS. Os carrinhos foram separados por identificador de utilizador, impedindo que contas diferentes no mesmo navegador partilhem os produtos adicionados.
 
+A política CORS está configurada na API Express e no servidor Socket.io através da variável de ambiente `CLIENT_URL`. Apenas a origem configurada é autorizada nas respostas CORS, incluindo os pedidos de preflight `OPTIONS` com os métodos e cabeçalhos necessários. A aplicação exige que `CLIENT_URL` esteja definida no arranque, evitando o uso de um fallback permissivo para qualquer origem. Esta política foi validada com testes de origem autorizada, origem não autorizada e preflight.
+
 As credenciais e os segredos de configuração devem ser mantidos em variáveis de ambiente, fora do código versionado. O HTTPS deve ser utilizado no deployment para proteger a comunicação e os tokens em trânsito.
 
 ## 7. Tempo real e consistência dos leilões
