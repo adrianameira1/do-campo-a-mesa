@@ -8,7 +8,6 @@ const Order = require('../models/Order');
 const mongoose = require('mongoose');
 
 // POST /api/orders  (comprador)  -> 201
-// TODO: copiar nome e preço de cada produto para as linhas e validar o stock
 
 
 router.post('/', auth('comprador'), async (req, res, next) => {
@@ -144,10 +143,10 @@ router.post('/', auth('comprador'), async (req, res, next) => {
       }
 
       // Criar as encomendas dentro da transação
-        return await Order.create(documentos, {
+      return await Order.create(documentos, {
         session,
         ordered: true
-        });
+      });
     });
 
     res.status(201).json(encomendas);
