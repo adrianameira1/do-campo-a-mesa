@@ -4,16 +4,98 @@ const bcrypt = require('bcryptjs'); // eslint-disable-line no-unused-vars
 const jwt = require('jsonwebtoken'); // eslint-disable-line no-unused-vars
 const User = require('../models/User'); // eslint-disable-line no-unused-vars
 const auth = require('../middleware/auth');
-const porFazer = require('./_naoImplementado');
 
 // POST /api/auth/registo  -> 201 { id }
-// TODO: validar dados, fazer hash da password com bcrypt (custo 12) e criar o utilizador.
-//       Um produtor fica com produtor.validado = false até o administrador aprovar.
-router.post('/registo', porFazer('Registar utilizador (comprador ou produtor)'));
+router.post('/registo', async (req, res, next) => {
+  try {
+    const {
+      nome,
+      email,
+      password,
+      papel = 'comprador',
+      produtor
+    } = req.body || {};
+
+    // Validar os campos obrigatórios
+    if (
+      typeof nome !== 'string' ||
+      !nome.trim() ||
+      typeof email !== 'string' ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ||
+      typeof password !== 'string' ||
+      password.length < 8
+    ) {
+      return res.status(400).json({
+        erro: 'Nome, email válido e password com pelo menos 8 caracteres são obrigatórios'
+      });
+    }
+
+    // Impedir o registo público de administradores
+    if (!['comprador', 'produtor'].includes(papel)) {
+      return res.status(400).json({
+        erro: 'Tipo de conta inválido'
+      });
+    }
+
+    // Validar dados específicos dos produtores
+    if (
+      papel === 'produtor' &&
+      (
+        !produtor ||
+        typeof produtor.nomeExploracao !== 'string' ||
+        !produtor.nomeExploracao.trim() ||
+        typeof produtor.localidade !== 'string' ||
+        !produtor.localidade.trim()
+      )
+    ) {
+      return res.status(400).json({
+        erro: 'Nome da exploração e localidade são obrigatórios para produtores'
+      });
+    }
+
+    const emailNormalizado = email.trim().toLowerCase();
+
+    // Confirmar se já existe um utilizador com este email
+    const existente = await User.exists({
+      email: emailNormalizado
+    });
+
+    if (existente) {
+      return res.status(409).json({
+        erro: 'Este email já está registado'
+      });
+    }
+
+    // Nunca guardar a password em texto simples
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    const dadosUtilizador = {
+      nome: nome.trim(),
+      email: emailNormalizado,
+      passwordHash,
+      papel
+    };
+
+    if (papel === 'produtor') {
+      dadosUtilizador.produtor = {
+        nomeExploracao: produtor.nomeExploracao.trim(),
+        localidade: produtor.localidade.trim(),
+        validado: false
+      };
+    }
+
+    const utilizador = await User.create(dadosUtilizador);
+
+    return res.status(201).json({
+      id: utilizador._id
+    });
+
+  } catch (err) {
+    next(err);
+  }
+});
 
 // POST /api/auth/login  -> 200 { token, utilizador }
-// TODO: procurar pelo email (com .select('+passwordHash')), comparar com bcrypt.compare
-//       e devolver um JWT com { id, papel } assinado com process.env.JWT_SECRET.
 
 router.post('/login', async (req, res, next) => {
   try {
@@ -85,6 +167,27 @@ router.post('/login', async (req, res, next) => {
 
 
 // GET /api/auth/eu  -> 200 dados do utilizador autenticado
-router.get('/eu', auth(), porFazer('Devolver o utilizador autenticado'));
+router.get('/eu', auth(), async (req, res, next) => {
+  try {
+    const utilizador = await User.findById(req.user.id);
+
+    if (!utilizador) {
+      return res.status(401).json({
+        erro: 'Utilizador não encontrado ou sessão inválida'
+      });
+    }
+
+    return res.status(200).json({
+      _id: utilizador._id,
+      nome: utilizador.nome,
+      email: utilizador.email,
+      papel: utilizador.papel,
+      produtor: utilizador.produtor
+    });
+
+  } catch (err) {
+    next(err);
+  }
+});
 
 module.exports = router;

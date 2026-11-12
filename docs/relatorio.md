@@ -146,7 +146,19 @@ Estes exemplos ilustram como os índices definidos podem apoiar as operações d
 
 ## 6. Segurança
 
-[JWT, papéis, hash de passwords, HTTPS, gestão de segredos.]
+A autenticação utiliza JSON Web Tokens (JWT). No início de sessão, a API valida as credenciais e emite um token assinado, com prazo de validade configurável. Os endpoints protegidos exigem o cabeçalho `Authorization: Bearer <token>`.
+
+As passwords são armazenadas no MongoDB sob a forma de hashes bcrypt, com custo 12, não sendo guardadas em texto simples nem devolvidas nas respostas. O registo público permite apenas contas de comprador e produtor; a criação de administradores através deste endpoint é impedida. Os produtores recém-registados ficam pendentes de aprovação administrativa.
+
+A autorização utiliza controlo de acesso baseado em papéis (*Role-Based Access Control*). O middleware consulta o utilizador no MongoDB em cada pedido autenticado, utilizando o papel atual da conta em vez de confiar exclusivamente no papel incluído no JWT. As operações protegidas verificam igualmente a propriedade dos recursos, como produtos e encomendas.
+
+A criação de produtos e leilões exige que o produtor esteja aprovado. Esta exigência foi também aplicada à edição e eliminação de produtos. A atualização de encomendas existentes mantém a verificação de que o produtor é o responsável pela encomenda.
+
+Foram realizados testes de autenticação e autorização, incluindo tokens inválidos, ausência do esquema Bearer, credenciais incorretas, tentativas de acesso administrativo por compradores, registo de administradores e operações proibidas a produtores não aprovados.
+
+No frontend, as sessões são mantidas no `localStorage`, o que permite conservar a autenticação após atualizar a página, mas exige especial atenção à prevenção de ataques XSS. Os carrinhos foram separados por identificador de utilizador, impedindo que contas diferentes no mesmo navegador partilhem os produtos adicionados.
+
+As credenciais e os segredos de configuração devem ser mantidos em variáveis de ambiente, fora do código versionado. O HTTPS deve ser utilizado no deployment para proteger a comunicação e os tokens em trânsito.
 
 ## 7. Tempo real e consistência dos leilões
 

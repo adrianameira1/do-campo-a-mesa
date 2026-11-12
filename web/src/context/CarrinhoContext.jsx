@@ -1,12 +1,13 @@
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
+import { useAuth } from './AuthContext.jsx';
 
 const CarrinhoContext = createContext(null);
 
-// Recupera o carrinho guardado no navegador
-function lerCarrinho() {
+// Cada utilizador tem um carrinho independente no navegador.
+function lerCarrinho(chave) {
   try {
-    const guardado = JSON.parse(localStorage.getItem('carrinho') || '[]');
+    const guardado = JSON.parse(localStorage.getItem(chave) || '[]');
     return Array.isArray(guardado) ? guardado : [];
   } catch {
     return [];
@@ -14,16 +15,39 @@ function lerCarrinho() {
 }
 
 export function CarrinhoProvider({ children }) {
-  const [linhas, setLinhas] = useState(lerCarrinho);
+  const { utilizador } = useAuth();
+  const chave = `carrinho:${utilizador?._id || 'visitante'}`;
 
-  // Guarda o carrinho sempre que os produtos mudam
-  useEffect(() => {
-    try {
-      localStorage.setItem('carrinho', JSON.stringify(linhas));
-    } catch {
-      // O navegador pode impedir o armazenamento
-    }
-  }, [linhas]);
+  // O estado identifica a conta à qual pertence o carrinho.
+  const [estado, setEstado] = useState(() => ({
+    chave,
+    linhas: lerCarrinho(chave)
+  }));
+
+  // Ao mudar de utilizador, não apresentar linhas da conta anterior.
+  const linhas = estado.chave === chave
+    ? estado.linhas
+    : lerCarrinho(chave);
+
+  function setLinhas(atualizar) {
+    setEstado((anterior) => {
+      const atuais = anterior.chave === chave
+        ? anterior.linhas
+        : lerCarrinho(chave);
+
+      const novas = typeof atualizar === 'function'
+        ? atualizar(atuais)
+        : atualizar;
+
+      try {
+        localStorage.setItem(chave, JSON.stringify(novas));
+      } catch {
+        // O navegador pode impedir o armazenamento.
+      }
+
+      return { chave, linhas: novas };
+    });
+  }
 
   function adicionar(produto, quantidade = 1) {
     setLinhas((atual) => {

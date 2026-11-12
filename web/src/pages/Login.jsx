@@ -22,6 +22,11 @@ export default function Login() {
   return (
     <form className="formulario-estreito" onSubmit={submeter}>
       <h1>Entrar</h1>
+      {location.state?.mensagem && (
+        <div className="alert alert-success" role="status">
+          {location.state.mensagem}
+        </div>
+      )}
       <label htmlFor="email" className="form-label">Email</label>
       <input id="email" type="email" className="form-control mb-3" required
         value={dados.email} onChange={(e) => setDados({ ...dados, email: e.target.value })} />

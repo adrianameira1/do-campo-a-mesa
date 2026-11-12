@@ -190,6 +190,19 @@ router.post('/', auth('produtor'), async (req, res, next) => {
 
 router.put('/:id', auth('produtor'), async (req, res, next) => {
   try {
+    // Apenas produtores aprovados podem gerir o catálogo
+    const produtor = await User.findOne({
+      _id: req.user.id,
+      papel: 'produtor',
+      'produtor.validado': true
+    });
+
+    if (!produtor) {
+      return res.status(403).json({
+        erro: 'Produtor não validado'
+      });
+    }
+
     // Campos que podem ser atualizados
     const camposPermitidos = [
       'nome',
@@ -242,6 +255,19 @@ router.put('/:id', auth('produtor'), async (req, res, next) => {
 
 router.delete('/:id', auth('produtor'), async (req, res, next) => {
   try {
+    // Apenas produtores aprovados podem gerir o catálogo
+    const produtor = await User.findOne({
+      _id: req.user.id,
+      papel: 'produtor',
+      'produtor.validado': true
+    });
+
+    if (!produtor) {
+      return res.status(403).json({
+        erro: 'Produtor não validado'
+      });
+    }
+
     // Eliminar apenas produtos do produtor autenticado
     const resultado = await Product.deleteOne({
       _id: req.params.id,

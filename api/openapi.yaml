@@ -46,10 +46,37 @@ paths:
       operationId: criarAuthRegisto
       tags: [Autenticação]
       summary: Registar utilizador
-      description: "Previsto para o Passo 6. Atualmente devolve HTTP 501."
+      description: >
+        Cria uma conta de comprador ou produtor. A password é
+        guardada com bcrypt (custo 12). Os produtores ficam
+        pendentes de aprovação administrativa.
+        O registo público de administradores não é permitido.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistoInput'
       responses:
-        '501':
-          description: Funcionalidade ainda não implementada
+        '201':
+          description: Utilizador registado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id:
+                    type: string
+                    description: ObjectId do utilizador criado
+        '400':
+          description: Dados de registo inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '409':
+          description: Email já registado
           content:
             application/json:
               schema:
@@ -60,14 +87,21 @@ paths:
       operationId: listarAuthEu
       tags: [Autenticação]
       summary: Consultar utilizador autenticado
-      description: "Previsto para o Passo 6. Atualmente devolve HTTP 501 após autenticação."
+      description: >
+        Consulta os dados atuais do utilizador no MongoDB,
+        utilizando um JWT válido no cabeçalho Authorization.
+        A password e o respetivo hash não são devolvidos.
       security:
         - bearerAuth: []
       responses:
+        '200':
+          description: Dados do utilizador autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPublic'
         '401':
-          description: Autenticação necessária
-        '501':
-          description: Funcionalidade ainda não implementada
+          description: Token inválido, expirado ou utilizador inexistente
           content:
             application/json:
               schema:
@@ -816,6 +850,41 @@ components:
             _id: { type: string }
             produtor: { type: string, description: Id do produtor (ou objeto com populate) }
             imagemUrl: { type: string }
+    RegistoInput:
+      type: object
+      required: [nome, email, password]
+      properties:
+        nome:
+          type: string
+          minLength: 1
+          example: Maria Silva
+        email:
+          type: string
+          format: email
+          example: maria@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          writeOnly: true
+        papel:
+          type: string
+          enum: [comprador, produtor]
+          default: comprador
+        produtor:
+          type: object
+          description: Obrigatório quando o papel é produtor
+          required: [nomeExploracao, localidade]
+          properties:
+            nomeExploracao:
+              type: string
+              minLength: 1
+              example: Quinta da Maria
+            localidade:
+              type: string
+              minLength: 1
+              example: Barcelos
+
     LoginInput:
       type: object
       required: [email, password]
