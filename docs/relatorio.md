@@ -74,6 +74,12 @@ Foram realizados 17 testes de validação dos modelos `Order`, `Review`, `Auctio
 
 Adicionalmente, foi confirmada a consulta autenticada das encomendas através da API REST, verificando a compatibilidade dos dados existentes com os modelos atualizados.
 
+Foram também realizados testes de integração à criação de encomendas e à atualização do stock através da API REST. Numa encomenda válida, confirmou-se a redução do stock de 10 para 7 unidades após a compra de três unidades, bem como a criação da encomenda no estado `pendente`.
+
+Para verificar a consistência transacional, foi simulada uma encomenda com dois produtos, em que o primeiro tinha stock suficiente e o segundo não. A API rejeitou a operação com HTTP 409 (`Stock insuficiente`) e a consulta posterior ao MongoDB confirmou que os stocks permaneceram inalterados e que não foi criada nenhuma encomenda adicional. Este resultado demonstrou o funcionamento do rollback no cenário testado.
+
+Foram ainda verificadas as transições sequenciais dos estados das encomendas, a rejeição de transições inválidas e a proteção contra alterações efetuadas por produtores não associados à encomenda.
+
 
 ### 5.5. Exemplos de consultas MongoDB
 
