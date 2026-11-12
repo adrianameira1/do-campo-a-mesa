@@ -9,7 +9,7 @@ const User = require('../models/User');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 // GET /api/products?q=&categoria=&precoMax=&bio=&epoca=  -> 200 [produtos]
-// Exemplo já implementado; completar com os restantes filtros (época, produtor, ordenação…)
+
 
 
 const escaparRegex = (texto) =>

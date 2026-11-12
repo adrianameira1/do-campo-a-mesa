@@ -3,6 +3,13 @@ module.exports = (err, req, res, next) => {
   // Registar o erro no servidor para diagnóstico
   console.error(err);
 
+  // Chave duplicada no MongoDB (índice unique)
+  if (err.code === 11000) {
+    return res.status(409).json({
+      erro: 'Já existe um registo com estes dados'
+    });
+  }
+
   // Erros de validação do Mongoose
   if (err.name === 'ValidationError') {
     const detalhes = Object.values(err.errors).map(

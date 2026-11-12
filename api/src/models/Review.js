@@ -40,4 +40,15 @@ reviewSchema.index({ produtor: 1, visivel: 1, createdAt: -1 });
 // Avaliações de um produto
 reviewSchema.index({ produto: 1, visivel: 1, createdAt: -1 });
 
+// Impedir avaliações duplicadas da mesma encomenda
+reviewSchema.index(
+  { autor: 1, encomenda: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      encomenda: { $type: 'objectId' }
+    }
+  }
+);
+
 module.exports = model('Review', reviewSchema);
