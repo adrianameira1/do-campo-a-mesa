@@ -28,12 +28,18 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/registo" element={<Registo />} />
 
-          {/* Comprador */}
-          <Route element={<RotaProtegida papeis={['comprador']} />}>
+
+          {/* Qualquer utilizador autenticado pode assistir ao leilão */}
+          <Route element={<RotaProtegida />}>
             <Route path="/leiloes/:id" element={<SalaLeilao />} />
+          </Route>
+
+          {/* Apenas compradores */}
+          <Route element={<RotaProtegida papeis={['comprador']} />}>
             <Route path="/carrinho" element={<Carrinho />} />
             <Route path="/encomendas" element={<Encomendas />} />
           </Route>
+
 
           {/* Produtor */}
           <Route element={<RotaProtegida papeis={['produtor']} />}>
