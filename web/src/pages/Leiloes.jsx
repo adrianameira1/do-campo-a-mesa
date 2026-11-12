@@ -38,9 +38,24 @@ export default function Leiloes() {
       setLeiloes(leiloesSimulados);
       setACarregar(false);
     } else {
-      api('/auctions?estado=ativo')
+      api('/auctions')
         .then((dados) => {
-          if (ativo) setLeiloes(dados);
+          if (ativo) {
+            const agora = Date.now();
+
+            const leiloesEmCurso = dados.filter((leilao) => {
+              const inicio = new Date(leilao.iniciaEm).getTime();
+              const fim = new Date(leilao.terminaEm).getTime();
+
+              return (
+                leilao.estado !== 'terminado' &&
+                inicio <= agora &&
+                fim > agora
+              );
+            });
+
+            setLeiloes(leiloesEmCurso);
+          }
         })
         .catch((e) => {
           if (ativo) setErro(e.message);
