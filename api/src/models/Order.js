@@ -36,8 +36,21 @@ const orderSchema = new Schema({
     tipo: { type: String, enum: ['levantamento', 'entrega'], default: 'levantamento' },
     morada: String
   }
-  // TODO (Passo 4): total calculado? histórico de mudanças de estado?
-}, { timestamps: true });
+}, {
+  timestamps: true,
+  toJSON: { virtuals: true }
+});
+
+// Total calculado a partir das linhas, sem duplicar dados na BD
+orderSchema.virtual('total').get(function () {
+  return Math.round(
+    this.linhas.reduce(
+      (total, linha) =>
+        total + linha.precoUnit * linha.quantidade,
+      0
+    ) * 100
+  ) / 100;
+});
 
 orderSchema.statics.ESTADOS = ESTADOS;
 
