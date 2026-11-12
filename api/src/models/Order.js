@@ -7,12 +7,30 @@ const ESTADOS = ['pendente', 'confirmada', 'pronta', 'entregue'];
 const orderSchema = new Schema({
   comprador: { type: Types.ObjectId, ref: 'User', required: true },
   produtor: { type: Types.ObjectId, ref: 'User', required: true },
-  linhas: [{
-    produto: { type: Types.ObjectId, ref: 'Product' },
-    nome: String,      // cópia do nome no momento da compra
-    precoUnit: Number, // cópia do preço no momento da compra
-    quantidade: { type: Number, min: 1 }
-  }],
+
+  linhas: {
+    type: [{
+      produto: { type: Types.ObjectId, ref: 'Product' },
+
+      // Dados preservados no momento da compra
+      nome: { type: String, required: true, trim: true },
+      precoUnit: { type: Number, required: true, min: 0 },
+      quantidade: {
+        type: Number,
+        required: true,
+        min: 1,
+        validate: {
+          validator: Number.isInteger,
+          message: 'A quantidade deve ser um número inteiro.'
+        }
+      }
+    }],
+    validate: {
+      validator: (linhas) => Array.isArray(linhas) && linhas.length > 0,
+      message: 'A encomenda deve conter pelo menos um produto.'
+    }
+  },
+
   estado: { type: String, enum: ESTADOS, default: 'pendente' },
   entrega: {
     tipo: { type: String, enum: ['levantamento', 'entrega'], default: 'levantamento' },

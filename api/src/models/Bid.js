@@ -3,7 +3,7 @@ const { Schema, model, Types } = require('mongoose');
 const bidSchema = new Schema({
   leilao: { type: Types.ObjectId, ref: 'Auction', required: true },
   comprador: { type: Types.ObjectId, ref: 'User', required: true },
-  valor: { type: Number, required: true }
+  valor: { type: Number, required: true, min: 0 }
 }, { timestamps: true });
 
 // Passo 4 — Índice para o histórico de licitações

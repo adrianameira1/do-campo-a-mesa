@@ -1,5 +1,6 @@
-// TODO (Passo 4): decidir se as avaliações ficam embebidas no produto/produtor
-// ou numa coleção própria, e justificar a decisão no relatório.
+// As avaliações são armazenadas numa coleção independente.
+// Referencing permite consultar e moderar avaliações individualmente,
+// evitando o crescimento ilimitado dos documentos de produtos/produtores.
 const { Schema, model, Types } = require('mongoose');
 
 const reviewSchema = new Schema({
@@ -7,9 +8,27 @@ const reviewSchema = new Schema({
   produtor: { type: Types.ObjectId, ref: 'User', required: true },
   produto: { type: Types.ObjectId, ref: 'Product' },
   encomenda: { type: Types.ObjectId, ref: 'Order' },
-  classificacao: { type: Number, min: 1, max: 5, required: true },
-  comentario: String,
-  denuncias: { type: Number, default: 0 },
+  classificacao: {
+    type: Number,
+    required: true,
+    min: 1,
+    max: 5,
+    validate: {
+      validator: Number.isInteger,
+      message: 'A classificação deve ser um número inteiro.'
+    }
+  },
+  comentario: { type: String, trim: true },
+
+  denuncias: {
+    type: Number,
+    default: 0,
+    min: 0,
+    validate: {
+      validator: Number.isInteger,
+      message: 'O número de denúncias deve ser inteiro.'
+    }
+  },
   visivel: { type: Boolean, default: true }
 }, { timestamps: true });
 
