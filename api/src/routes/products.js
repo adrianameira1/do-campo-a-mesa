@@ -137,8 +137,9 @@ router.post('/', auth('produtor'), async (req, res, next) => {
     }
 
     // Apenas campos permitidos podem vir do pedido
-    const {
+   const {
       nome,
+      descricao,
       categoria,
       preco,
       unidade,
@@ -150,6 +151,7 @@ router.post('/', auth('produtor'), async (req, res, next) => {
     const produto = await Product.create({
       produtor: produtor._id,
       nome,
+      descricao,
       categoria,
       preco,
       unidade,
