@@ -42,6 +42,7 @@ export default function Produtos() {
   const [aCarregar, setACarregar] = useState(true);
   const [aGuardar, setAGuardar] = useState(false);
   const [aEliminar, setAEliminar] = useState(null);
+  const [produtoParaEliminar, setProdutoParaEliminar] = useState(null);
   const [erro, setErro] = useState('');
   const [mensagem, setMensagem] = useState('');
 
@@ -195,12 +196,17 @@ export default function Produtos() {
     }
   }
 
-  async function eliminar(produto) {
-    const confirmado = window.confirm(
-      `Tens a certeza de que queres eliminar "${produto.nome}"?`
-    );
+  
+  function pedirEliminacao(produto) {
+    setProdutoParaEliminar(produto);
+    setErro('');
+    setMensagem('');
+  }
 
-    if (!confirmado) return;
+  async function eliminar() {
+    if (!produtoParaEliminar || aEliminar !== null) return;
+
+    const produto = produtoParaEliminar;
 
     setAEliminar(produto._id);
     setErro('');
@@ -216,14 +222,17 @@ export default function Produtos() {
         limparFormulario();
       }
 
+      setProdutoParaEliminar(null);
       setMensagem('Produto eliminado com sucesso!');
       await carregarProdutos();
     } catch (err) {
       setErro(err.message || 'Não foi possível eliminar o produto.');
+      setProdutoParaEliminar(null);
     } finally {
       setAEliminar(null);
     }
   }
+
 
   return (
     <>
@@ -474,7 +483,7 @@ export default function Produtos() {
                       type="button"
                       className="btn btn-outline-danger btn-sm"
                       disabled={aEliminar !== null || aGuardar}
-                      onClick={() => eliminar(produto)}
+                      onClick={() => pedirEliminacao(produto)}
                     >
                       {aEliminar === produto._id
                         ? 'A eliminar...'
@@ -487,6 +496,86 @@ export default function Produtos() {
           </div>
         )}
       </section>
+
+      {produtoParaEliminar && (
+        <div
+          className="modal d-block"
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="titulo-eliminar-produto"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.55)' }}
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0 rounded-4 shadow">
+              <div className="modal-header border-0 pb-0">
+                <h2
+                  id="titulo-eliminar-produto"
+                  className="modal-title h4"
+                >
+                  Eliminar produto?
+                </h2>
+
+                <button
+                  type="button"
+                  className="btn-close"
+                  aria-label="Fechar"
+                  disabled={aEliminar !== null}
+                  onClick={() => setProdutoParaEliminar(null)}
+                />
+              </div>
+
+              <div className="modal-body py-4">
+                <div
+                  className="rounded-circle d-flex align-items-center justify-content-center mb-3"
+                  style={{
+                    width: 52,
+                    height: 52,
+                    backgroundColor: '#fce8e6',
+                    color: '#b42318',
+                    fontSize: 24
+                  }}
+                  aria-hidden="true"
+                >
+                  !
+                </div>
+
+                <p className="mb-2">
+                  Tens a certeza de que queres eliminar o produto
+                  <strong> {produtoParaEliminar.nome}</strong>?
+                </p>
+
+                <p className="texto-secundario small mb-0">
+                  Esta ação é permanente e não pode ser desfeita.
+                </p>
+              </div>
+
+              <div className="modal-footer border-0 pt-0">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  disabled={aEliminar !== null}
+                  onClick={() => setProdutoParaEliminar(null)}
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  disabled={aEliminar !== null}
+                  onClick={eliminar}
+                >
+                  {aEliminar !== null
+                    ? 'A eliminar...'
+                    : 'Sim, eliminar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </>
   );
 }
