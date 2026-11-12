@@ -4,6 +4,7 @@ import { useCarrinho } from '../context/CarrinhoContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api, USAR_DADOS_SIMULADOS } from '../api/client.js';
 import produtosSimulados from '../data/produtos.json';
+import DestaqueLeilao from '../components/DestaqueLeilao.jsx';
 
 const CATEGORIAS = ['Todos', 'Hortícolas', 'Fruta', 'Mel', 'Vinho', 'Queijo', 'Padaria'];
 
@@ -103,6 +104,8 @@ export default function Catalogo() {
           da época nos leilões em direto.
         </p>
       </section>
+
+      <DestaqueLeilao />
 
       <section className="filtros mb-3" aria-label="Filtros">
         <label className="visually-hidden" htmlFor="pesquisa">

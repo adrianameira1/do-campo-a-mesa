@@ -1,19 +1,25 @@
 
+
 .grelha-produtos {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr)); // Telemóvel: 2 colunas
+  grid-template-columns: 1fr; // Telemóvel: 1 coluna
 
   @include a-partir-de(md) {
-    grid-template-columns: repeat(3, minmax(0, 1fr)); // 768px: 3 colunas
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1.25rem;
   }
 
+  @include a-partir-de(lg) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   @include a-partir-de(xl) {
-    grid-template-columns: repeat(4, minmax(0, 1fr)); // 1280px: 4 colunas
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 1.5rem;
   }
 }
+
 
 
 .cartao-produto {
