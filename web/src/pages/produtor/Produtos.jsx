@@ -196,7 +196,7 @@ export default function Produtos() {
     }
   }
 
-  
+
   function pedirEliminacao(produto) {
     setProdutoParaEliminar(produto);
     setErro('');
