@@ -6,8 +6,13 @@ info:
   version: 0.1.0
   description: API REST do mercado digital de produtores locais.
 security: []
+
 servers:
+  - url: https://dcm-adriana-api.onrender.com/api
+    description: API pública — Render
   - url: http://localhost:3000/api
+    description: API local — Desenvolvimento
+
 paths:
   /auth/login:
     post:
