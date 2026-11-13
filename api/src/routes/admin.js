@@ -7,6 +7,7 @@ const Order = require('../models/Order');
 const Auction = require('../models/Auction');
 const { isValidObjectId } = require('mongoose');
 const Review = require('../models/Review');
+const Product = require('../models/Product');
 
 router.use(auth('admin'));
 
@@ -67,10 +68,12 @@ router.get('/estatisticas', async (req, res, next) => {
 
 router.get('/produtores/pendentes', async (req, res, next) => {
   try {
-    const produtores = await User.find({
-      papel: 'produtor',
-      'produtor.validado': false
-    })
+
+      const produtores = await User.find({
+        papel: 'produtor',
+        'produtor.validado': false,
+        'produtor.rejeitado': { $ne: true }
+      })
       .select('nome email produtor createdAt')
       .sort({ createdAt: 1 });
 
@@ -82,28 +85,30 @@ router.get('/produtores/pendentes', async (req, res, next) => {
 });
 
 
-// PATCH /api/admin/produtores/:id/validacao  { aprovado: true|false }  -> 200
+
+ // PATCH /api/admin/produtores/:id/validacao
+ // Aprovar ou rejeitar um produtor pendente.
 
 router.patch('/produtores/:id/validacao', async (req, res, next) => {
   try {
     const { id } = req.params;
     const { aprovado } = req.body || {};
 
-    // 1. Validar o identificador do produtor
+    // 1. Validar o identificador.
     if (!isValidObjectId(id)) {
       return res.status(400).json({
         erro: 'Identificador inválido'
       });
     }
 
-    // 2. Validar o valor recebido
+    // 2. Validar a decisão.
     if (typeof aprovado !== 'boolean') {
       return res.status(400).json({
         erro: 'O campo aprovado deve ser true ou false'
       });
     }
 
-    // 3. Procurar o produtor
+    // 3. Procurar o produtor.
     const produtor = await User.findOne({
       _id: id,
       papel: 'produtor'
@@ -115,12 +120,31 @@ router.patch('/produtores/:id/validacao', async (req, res, next) => {
       });
     }
 
-    // 4. Atualizar o estado de validação
+    // 4. Impedir decisões repetidas.
+    if (
+      produtor.produtor.validado === true ||
+      produtor.produtor.rejeitado === true
+    ) {
+      return res.status(409).json({
+        erro: 'Este pedido de produtor já foi decidido'
+      });
+    }
+
+    // 5. Guardar a decisão.
     produtor.produtor.validado = aprovado;
+    produtor.produtor.rejeitado = !aprovado;
 
     await produtor.save();
 
-    // 5. Devolver o produtor atualizado
+    // 6. Notificar o produtor quando é aprovado.
+    if (aprovado) {
+      req.app.get('io')?.to(`user:${produtor._id}`).emit(
+        'conta-validada',
+        { id: produtor._id.toString() }
+      );
+    }
+
+    // 7. Devolver a resposta de sucesso.
     return res.status(200).json({
       _id: produtor._id,
       nome: produtor.nome,
@@ -134,14 +158,18 @@ router.patch('/produtores/:id/validacao', async (req, res, next) => {
 });
 
 
+
 // GET /api/admin/reviews/denunciadas  -> 200
 
 router.get('/reviews/denunciadas', async (req, res, next) => {
   try {
     // Consultar avaliações com pelo menos uma denúncia
+
     const avaliacoes = await Review.find({
-      denuncias: { $gt: 0 }
+      denuncias: { $gt: 0 },
+      estadoModeracao: { $ne: 'resolvida' }
     })
+
       .populate('autor', 'nome')
       .populate('produtor', 'nome produtor.nomeExploracao')
       .populate('produto', 'nome')
@@ -153,6 +181,29 @@ router.get('/reviews/denunciadas', async (req, res, next) => {
     next(err);
   }
 });
+
+
+ // GET /api/admin/reviews/resolvidas
+ // Consultar o histórico de avaliações moderadas.
+
+router.get('/reviews/resolvidas', async (req, res, next) => {
+  try {
+    const avaliacoes = await Review.find({
+      denuncias: { $gt: 0 },
+      estadoModeracao: 'resolvida'
+    })
+      .select('-denunciantes')
+      .populate('autor', 'nome')
+      .populate('produtor', 'nome produtor.nomeExploracao')
+      .populate('produto', 'nome')
+      .sort({ moderadoEm: -1, createdAt: -1 });
+
+    return res.status(200).json(avaliacoes);
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 
 // PATCH /api/admin/reviews/:id  { visivel: false }  -> 200
@@ -177,14 +228,22 @@ router.patch('/reviews/:id', async (req, res, next) => {
     }
 
     // Atualizar a visibilidade da avaliação
+
     const avaliacao = await Review.findByIdAndUpdate(
       id,
-      { $set: { visivel } },
+      {
+        $set: {
+          visivel,
+          estadoModeracao: 'resolvida',
+          moderadoEm: new Date()
+        }
+      },
       {
         new: true,
         runValidators: true
       }
     );
+
 
     if (!avaliacao) {
       return res.status(404).json({
@@ -198,6 +257,72 @@ router.patch('/reviews/:id', async (req, res, next) => {
     next(err);
   }
 });
+
+
+/**
+ * GET /api/admin/products
+ * Listar todos os produtos, incluindo os ocultos.
+ */
+router.get('/products', async (req, res, next) => {
+  try {
+    const produtos = await Product.find()
+      .populate(
+        'produtor',
+        'nome produtor.nomeExploracao produtor.localidade'
+      )
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json(produtos);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * PATCH /api/admin/products/:id/visibilidade
+ * Ocultar ou voltar a mostrar um produto.
+ */
+router.patch('/products/:id/visibilidade', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { visivel } = req.body || {};
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        erro: 'Identificador de produto inválido'
+      });
+    }
+
+    if (typeof visivel !== 'boolean') {
+      return res.status(400).json({
+        erro: 'O campo visivel deve ser true ou false'
+      });
+    }
+
+    const produto = await Product.findByIdAndUpdate(
+      id,
+      { $set: { visivel } },
+      {
+        new: true,
+        runValidators: true
+      }
+    ).populate(
+      'produtor',
+      'nome produtor.nomeExploracao'
+    );
+
+    if (!produto) {
+      return res.status(404).json({
+        erro: 'Produto não encontrado'
+      });
+    }
+
+    return res.status(200).json(produto);
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 
 module.exports = router;

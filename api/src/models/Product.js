@@ -18,8 +18,14 @@ const productSchema = new Schema({
   stock: { type: Number, default: 0, min: 0 },
   biologico: { type: Boolean, default: false },
   epocas: [{ type: String, enum: ['Primavera', 'Verão', 'Outono', 'Inverno'] }],
-  imagemUrl: String // Passo 8: URL da imagem no storage da Cloud
+  // Passo 8: URL da imagem no storage da Cloud
   // TODO (Passo 4): avaliação média? índices para pesquisa?
+   imagemUrl: String ,
+  // Moderação administrativa
+  visivel: {
+    type: Boolean,
+    default: true
+  }
 }, { timestamps: true });
 
 

@@ -35,6 +35,22 @@ const orderSchema = new Schema({
   entrega: {
     tipo: { type: String, enum: ['levantamento', 'entrega'], default: 'levantamento' },
     morada: String
+  },
+
+  // Identificar a origem da encomenda.
+  origem: {
+    type: String,
+    enum: ['loja', 'leilao'],
+    default: 'loja'
+  },
+
+  // Referência ao leilão quando a encomenda resulta de uma vitória.
+  leilao: {
+    type: Types.ObjectId,
+    ref: 'Auction',
+    required: function () {
+      return this.origem === 'leilao';
+    }
   }
 }, {
   timestamps: true,
@@ -44,7 +60,7 @@ const orderSchema = new Schema({
 // Total calculado a partir das linhas, sem duplicar dados na BD
 orderSchema.virtual('total').get(function () {
   return Math.round(
-    this.linhas.reduce(
+    (this.linhas || []).reduce(
       (total, linha) =>
         total + linha.precoUnit * linha.quantidade,
       0
@@ -61,5 +77,16 @@ orderSchema.index({ comprador: 1, createdAt: -1 });
 
 // Encomendas recebidas por um produtor
 orderSchema.index({ produtor: 1, createdAt: -1 });
+
+// Um leilão só pode originar uma encomenda.
+orderSchema.index(
+  { leilao: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      leilao: { $type: 'objectId' }
+    }
+  }
+);
 
 module.exports = model('Order', orderSchema);

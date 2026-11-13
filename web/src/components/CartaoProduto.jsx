@@ -8,9 +8,19 @@ const euro = (v) =>
 
 export default function CartaoProduto({ produto, onAdicionar }) {
   const produtor = produto.produtor;
+  const nomeProdutor =
+  produtor?.produtor?.nomeExploracao ||
+  produtor?.nome ||
+  'Produtor';
 
   return (
     <article className="card cartao-produto h-100">
+
+    <Link
+      to={`/produtos/${produto._id}`}
+      aria-label={`Ver detalhes de ${produto.nome}`}
+      className="d-block"
+    >
       {produto.imagemUrl ? (
         <img
           src={produto.imagemUrl}
@@ -23,13 +33,22 @@ export default function CartaoProduto({ produto, onAdicionar }) {
           aria-hidden="true"
         />
       )}
+    </Link>
+
 
       <div className="card-body d-flex flex-column">
         {produto.biologico && (
           <span className="etiqueta-bio">BIO</span>
         )}
 
-        <h3 className="h6 mb-1">{produto.nome}</h3>
+        <h3 className="h6 mb-1">
+          <Link
+            to={`/produtos/${produto._id}`}
+            className="text-decoration-none text-reset"
+          >
+            {produto.nome}
+          </Link>
+        </h3>
 
         <p className="texto-secundario small mb-2">
           {produtor?._id ? (
@@ -37,10 +56,10 @@ export default function CartaoProduto({ produto, onAdicionar }) {
               to={`/produtores/${produtor._id}`}
               className="link-underline link-underline-opacity-0"
             >
-              {produtor.nome}
+              {nomeProdutor}
             </Link>
           ) : (
-            produtor?.nome || 'Produtor'
+            nomeProdutor
           )}
 
           {produtor?.produtor?.localidade &&

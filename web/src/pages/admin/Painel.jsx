@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { api } from '../../api/client.js';
+import ModeracaoProdutos from './ModeracaoProdutos.jsx';
+import { useEventoSocket } from '../../context/SocketContext.jsx';
 
 export default function PainelAdmin() {
   const { token } = useAuth();
@@ -10,6 +12,7 @@ export default function PainelAdmin() {
   const [estatisticas, setEstatisticas] = useState(null);
   const [pendentes, setPendentes] = useState([]);
   const [denunciadas, setDenunciadas] = useState([]);
+  const [resolvidas, setResolvidas] = useState([]);
   const [leiloes, setLeiloes] = useState([]);
 
   const [aCarregar, setACarregar] = useState(true);
@@ -25,20 +28,28 @@ export default function PainelAdmin() {
     }
 
     setACarregar(true);
-    setErro('');
 
     try {
-      const [estat, produtores, avaliacoes, listaLeiloes] =
-        await Promise.all([
-          api('/admin/estatisticas', { token }),
-          api('/admin/produtores/pendentes', { token }),
-          api('/admin/reviews/denunciadas', { token }),
-          api('/auctions?estado=ativo')
-        ]);
+
+      const [
+        estat,
+        produtores,
+        avaliacoes,
+        listaResolvidas,
+        listaLeiloes
+      ] = await Promise.all([
+        api('/admin/estatisticas', { token }),
+        api('/admin/produtores/pendentes', { token }),
+        api('/admin/reviews/denunciadas', { token }),
+        api('/admin/reviews/resolvidas', { token }),
+        api('/auctions?estado=ativo')
+      ]);
+
 
       setEstatisticas(estat);
       setPendentes(produtores);
       setDenunciadas(avaliacoes);
+      setResolvidas(listaResolvidas);
 
       // Considerar apenas leilões dentro do período ativo.
       const agora = Date.now();
@@ -60,7 +71,18 @@ export default function PainelAdmin() {
     carregarDados();
   }, [carregarDados]);
 
-  async function aprovarProdutor(id) {
+
+
+  // Atualizar o painel quando um leilão é criado
+  // ou muda de estado (agendado, ativo, terminado).
+  const aoAtualizarLeilao = useCallback(() => {
+    carregarDados();
+  }, [carregarDados]);
+
+  useEventoSocket('leilao-criado', aoAtualizarLeilao);
+  useEventoSocket('leilao-atualizado', aoAtualizarLeilao);
+
+  async function decidirProdutor(id, aprovado) {
     setAGuardar(id);
     setErro('');
     setMensagem('');
@@ -68,22 +90,29 @@ export default function PainelAdmin() {
     try {
       await api(`/admin/produtores/${id}/validacao`, {
         metodo: 'PATCH',
-        corpo: { aprovado: true },
+        corpo: { aprovado },
         token
       });
 
-      setMensagem('Produtor aprovado com sucesso!');
-      await carregarDados();
+      setMensagem(
+        aprovado
+          ? 'Produtor aprovado com sucesso!'
+          : 'Pedido do produtor rejeitado com sucesso.'
+      );
     } catch (err) {
-      setErro(err.message);
+      setErro(err.message || 'Não foi possível decidir o pedido.');
     } finally {
+      // Reconsultar a BD mesmo quando a resposta é um erro,
+      // para não apresentar pedidos que já foram decididos.
+      await carregarDados();
       setAGuardar(null);
     }
   }
 
-  async function alterarVisibilidade(avaliacao) {
-    const novaVisibilidade = !avaliacao.visivel;
 
+
+
+  async function resolverDenuncia(avaliacao, visivel) {
     setAGuardar(avaliacao._id);
     setErro('');
     setMensagem('');
@@ -91,23 +120,24 @@ export default function PainelAdmin() {
     try {
       await api(`/admin/reviews/${avaliacao._id}`, {
         metodo: 'PATCH',
-        corpo: { visivel: novaVisibilidade },
+        corpo: { visivel },
         token
       });
 
       setMensagem(
-        novaVisibilidade
-          ? 'Avaliação novamente visível.'
-          : 'Avaliação ocultada com sucesso.'
+        visivel
+          ? 'Denúncia resolvida. A avaliação permanece visível.'
+          : 'Denúncia resolvida. A avaliação foi ocultada.'
       );
 
       await carregarDados();
     } catch (err) {
-      setErro(err.message);
+      setErro(err.message || 'Erro ao resolver a denúncia.');
     } finally {
       setAGuardar(null);
     }
   }
+
 
   return (
     <>
@@ -195,16 +225,36 @@ export default function PainelAdmin() {
                         </p>
                       )}
 
-                      <button
-                        type="button"
-                        className="btn btn-success mt-auto"
-                        disabled={aGuardar !== null}
-                        onClick={() => aprovarProdutor(produtor._id)}
-                      >
-                        {aGuardar === produtor._id
-                          ? 'A aprovar...'
-                          : 'Aprovar produtor'}
-                      </button>
+                      <div className="d-flex flex-wrap gap-2 mt-auto">
+                        <button
+                          type="button"
+                          className="btn btn-success flex-fill"
+                          disabled={aGuardar !== null}
+                          onClick={() => decidirProdutor(produtor._id, true)}
+                        >
+                          {aGuardar === produtor._id
+                            ? 'A processar...'
+                            : 'Aprovar produtor'}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="btn btn-outline-danger flex-fill"
+                          disabled={aGuardar !== null}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                'Tens a certeza de que queres rejeitar este produtor?'
+                              )
+                            ) {
+                              decidirProdutor(produtor._id, false);
+                            }
+                          }}
+                        >
+                          Rejeitar produtor
+                        </button>
+                      </div>
+
                     </div>
                   </div>
                 ))}
@@ -250,22 +300,26 @@ export default function PainelAdmin() {
                         Estado: {avaliacao.visivel ? 'Visível' : 'Oculta'}
                       </p>
 
-                      <button
-                        type="button"
-                        className={`btn mt-auto ${
-                          avaliacao.visivel
-                            ? 'btn-outline-danger'
-                            : 'btn-outline-success'
-                        }`}
-                        disabled={aGuardar !== null}
-                        onClick={() => alterarVisibilidade(avaliacao)}
-                      >
-                        {aGuardar === avaliacao._id
-                          ? 'A guardar...'
-                          : avaliacao.visivel
-                            ? 'Ocultar avaliação'
-                            : 'Mostrar avaliação'}
-                      </button>
+                      <div className="d-flex flex-wrap gap-2 mt-auto">
+                        <button
+                          type="button"
+                          className="btn btn-outline-success flex-fill"
+                          disabled={aGuardar !== null}
+                          onClick={() => resolverDenuncia(avaliacao, true)}
+                        >
+                          Manter visível e resolver
+                        </button>
+
+                        <button
+                          type="button"
+                          className="btn btn-outline-danger flex-fill"
+                          disabled={aGuardar !== null}
+                          onClick={() => resolverDenuncia(avaliacao, false)}
+                        >
+                          Ocultar e resolver
+                        </button>
+                      </div>
+
                     </div>
                   </div>
                 ))}
@@ -273,6 +327,63 @@ export default function PainelAdmin() {
             )}
           </section>
 
+          <section className="mb-5" aria-labelledby="titulo-resolvidas">
+            <h2 id="titulo-resolvidas" className="h4 mb-3">
+              Histórico de denúncias resolvidas ({resolvidas.length})
+            </h2>
+
+            {resolvidas.length === 0 ? (
+              <p className="texto-secundario">
+                Ainda não existem denúncias resolvidas.
+              </p>
+            ) : (
+              <div className="row g-3">
+                {resolvidas.map((avaliacao) => (
+                  <div key={avaliacao._id} className="col-12 col-md-6">
+                    <article className="card p-3 h-100">
+                      <div className="d-flex justify-content-between gap-2">
+                        <h3 className="h5 mb-0">
+                          {avaliacao.produto?.nome ||
+                            avaliacao.produtor?.produtor?.nomeExploracao ||
+                            'Avaliação de produtor'}
+                        </h3>
+
+                        <span className="badge text-bg-success">
+                          Resolvida
+                        </span>
+                      </div>
+
+                      <p className="texto-secundario small mt-2 mb-1">
+                        {avaliacao.denuncias} denúncia(s)
+                      </p>
+
+                      <p className="mb-1">
+                        Por {avaliacao.autor?.nome || 'Utilizador'}
+                      </p>
+
+                      <p>{avaliacao.comentario || 'Sem comentário.'}</p>
+
+                      <p className="mb-1">
+                        <strong>Decisão:</strong>{' '}
+                        {avaliacao.visivel
+                          ? 'Manter comentário visível'
+                          : 'Ocultar comentário'}
+                      </p>
+
+                      {avaliacao.moderadoEm && (
+                        <p className="texto-secundario small mb-0">
+                          Decidido em:{' '}
+                          {new Date(avaliacao.moderadoEm).toLocaleString('pt-PT')}
+                        </p>
+                      )}
+                    </article>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <ModeracaoProdutos />
           <section className="mb-4" aria-labelledby="titulo-leiloes">
             <h2 id="titulo-leiloes" className="h4 mb-3">
               Leilões ativos ({leiloes.length})

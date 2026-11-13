@@ -13,7 +13,18 @@ const userSchema = new Schema({
     descricao: String,
     localidade: String,
     localizacao: { lat: Number, lng: Number },
-    validado: { type: Boolean, default: false } // o administrador valida o registo
+
+    // Estado da validação administrativa
+    validado: {
+      type: Boolean,
+      default: false
+    },
+
+    // Distinguir produtores rejeitados dos pendentes
+    rejeitado: {
+      type: Boolean,
+      default: false
+    } // o administrador valida o registo
   }
   // TODO (Passo 4): favoritos? morada de entrega? tipo de comprador (particular/restaurante)?
 }, { timestamps: true });

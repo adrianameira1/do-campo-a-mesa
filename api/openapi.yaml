@@ -112,7 +112,10 @@ paths:
       operationId: listarProducts
       tags: [Produtos]
       summary: Pesquisar e listar produtos
-      description: Pesquisa por nome do produto, ingrediente ou produtor, com filtros e ordenação.
+      description: >
+        Pesquisa produtos visíveis por nome, ingrediente ou produtor,
+        com filtros por categoria, localidade, preço, época e
+        produção biológica, além de ordenação.
       parameters:
         - name: q
           in: query
@@ -144,6 +147,12 @@ paths:
             type: string
             enum: [recentes, preco_asc, preco_desc]
             default: recentes
+        - name: localidade
+          in: query
+          description: Localidade do produtor
+          schema:
+            type: string
+            maxLength: 100
       responses:
         '200':
           description: Lista de produtos
@@ -187,6 +196,33 @@ paths:
         '400': { description: Dados inválidos }
         '401': { description: Autenticação necessária }
         '403': { description: Produtor sem permissão ou não validado }
+
+
+  /products/mine:
+    get:
+      operationId: listarMeusProdutos
+      tags: [Produtos]
+      summary: Consultar os meus produtos
+      description: >
+        Devolve todos os produtos do produtor autenticado,
+        incluindo os ocultados pela administração.
+        O produtor apenas consulta os seus próprios produtos.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de produtos do produtor
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+        '401':
+          description: Autenticação necessária
+        '403':
+          description: Apenas produtores podem consultar esta lista
+
 
   /products/{id}:
     parameters:
@@ -271,6 +307,64 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ProducerPublic'
+
+
+  /producers/me:
+    get:
+      operationId: consultarMeuPerfilProdutor
+      tags: [Produtores]
+      summary: Consultar o perfil da própria exploração
+      description: >
+        Permite ao produtor autenticado consultar os seus dados
+        e as informações da sua exploração.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Perfil do produtor autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProducerPrivate'
+        '401':
+          description: Autenticação necessária
+        '403':
+          description: Apenas produtores podem consultar o perfil
+        '404':
+          description: Produtor não encontrado
+
+    patch:
+      operationId: atualizarMeuPerfilProdutor
+      tags: [Produtores]
+      summary: Atualizar o perfil da exploração
+      description: >
+        Permite alterar o nome, descrição, localidade e
+        coordenadas da própria exploração.
+        Não permite alterar o estado de validação.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProducerUpdateInput'
+      responses:
+        '200':
+          description: Perfil atualizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProducerPrivate'
+        '400':
+          description: Dados de atualização inválidos
+        '401':
+          description: Autenticação necessária
+        '403':
+          description: Apenas produtores podem editar o perfil
+        '404':
+          description: Produtor não encontrado
+
 
   /producers/{id}:
     parameters:
@@ -360,7 +454,33 @@ paths:
         '400': { description: Dados ou identificador de produto inválidos }
         '401': { description: Autenticação necessária }
         '403': { description: Utilizador não é um produtor validado }
-        '404': { description: Produto associado não encontrado ou não pertence ao produtor }
+        '404': { description: Produto associado não encontrado, oculto ou não pertencente ao produtor }
+
+  /auctions/mine:
+    get:
+      operationId: listarMeusLeiloes
+      tags: [Leilões]
+      summary: Consultar os meus leilões
+      description: >
+        Lista os leilões pertencentes ao produtor autenticado,
+        incluindo estados, licitação atual, vencedor e
+        encomenda associada, quando existirem.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de leilões do produtor
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Auction'
+        '401':
+          description: Autenticação necessária
+        '403':
+          description: Apenas produtores podem consultar esta lista
+
 
   /auctions/{id}:
     parameters:
@@ -500,6 +620,75 @@ paths:
           description: Autenticação necessária
         '404':
           description: Avaliação não encontrada
+
+
+  /admin/products:
+    get:
+      operationId: listarProdutosAdministracao
+      tags: [Administração]
+      summary: Listar produtos para moderação
+      description: >
+        Lista todos os produtos da plataforma,
+        incluindo os ocultados pela administração.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista completa de produtos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+        '401':
+          description: Autenticação necessária
+        '403':
+          description: Apenas administradores
+
+  /admin/products/{id}/visibilidade:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ObjectId do produto
+        schema:
+          type: string
+
+    patch:
+      operationId: alterarVisibilidadeProduto
+      tags: [Administração]
+      summary: Ocultar ou restaurar um produto
+      description: >
+        Permite ao administrador alterar a visibilidade
+        de um produto sem o eliminar da base de dados.
+        Produtos ocultos deixam de aparecer no catálogo
+        público e não podem ser comprados nem associados
+        a novos leilões.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductModerationInput'
+      responses:
+        '200':
+          description: Visibilidade atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Identificador ou visibilidade inválidos
+        '401':
+          description: Autenticação necessária
+        '403':
+          description: Apenas administradores
+        '404':
+          description: Produto não encontrado
+
 
   /admin/estatisticas:
     get:
@@ -671,7 +860,7 @@ paths:
         '404':
           description: Produto não encontrado
         '409':
-          description: Stock insuficiente
+          description: Stock insuficiente ou produto indisponível para compra
 
   /orders/{id}:
     parameters:
@@ -804,6 +993,83 @@ components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
   schemas:
+
+    ProducerPrivate:
+      type: object
+      properties:
+        _id:
+          type: string
+        nome:
+          type: string
+        email:
+          type: string
+          format: email
+        produtor:
+          type: object
+          properties:
+            nomeExploracao:
+              type: string
+            descricao:
+              type: string
+            localidade:
+              type: string
+            validado:
+              type: boolean
+            localizacao:
+              type: object
+              properties:
+                lat:
+                  type: number
+                lng:
+                  type: number
+
+    ProducerUpdateInput:
+      type: object
+      description: >
+        Campos editáveis da exploração.
+        O estado de validação não pode ser alterado.
+      properties:
+        nomeExploracao:
+          type: string
+          minLength: 1
+          maxLength: 150
+          example: Mel do Soajo
+        descricao:
+          type: string
+          maxLength: 1000
+          example: Produção artesanal de mel da Serra do Soajo.
+        localidade:
+          type: string
+          minLength: 1
+          maxLength: 150
+          example: Arcos de Valdevez
+        localizacao:
+          type: object
+          required: [lat, lng]
+          additionalProperties: false
+          properties:
+            lat:
+              type: number
+              minimum: -90
+              maximum: 90
+              example: 41.874
+            lng:
+              type: number
+              minimum: -180
+              maximum: 180
+              example: -8.264
+
+    ProductModerationInput:
+      type: object
+      required: [visivel]
+      properties:
+        visivel:
+          type: boolean
+          description: >
+            true para apresentar o produto no catálogo;
+            false para o ocultar.
+          example: false
+
     ProductInput:
       type: object
       required: [nome, categoria, preco]
@@ -842,14 +1108,34 @@ components:
             type: string
             enum: [Primavera, Verão, Outono, Inverno]
 
+
     Product:
       allOf:
         - $ref: '#/components/schemas/ProductInput'
         - type: object
           properties:
-            _id: { type: string }
-            produtor: { type: string, description: Id do produtor (ou objeto com populate) }
-            imagemUrl: { type: string }
+            _id:
+              type: string
+            produtor:
+              description: ObjectId ou dados públicos do produtor
+              oneOf:
+                - type: string
+                - $ref: '#/components/schemas/ProducerPublic'
+            imagemUrl:
+              type: string
+            visivel:
+              type: boolean
+              default: true
+              description: >
+                Indica se o produto está visível no catálogo.
+                Apenas o administrador pode alterar este campo.
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
     RegistoInput:
       type: object
       required: [nome, email, password]
@@ -990,7 +1276,7 @@ components:
 
     AuctionInput:
       type: object
-      required: [lote, precoBase, incremento, iniciaEm, duracaoMinutos]
+      required: [lote, quantidade, precoBase, incremento, iniciaEm, duracaoMinutos]
       properties:
         produto:
           type: string

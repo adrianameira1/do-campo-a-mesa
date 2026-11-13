@@ -2,6 +2,10 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client.js';
+import { useSocket } from '../context/SocketContext.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
+import FormularioLicitacao from '../components/FormularioLicitacao.jsx';
+import HistoricoLicitacoes from '../components/HistoricoLicitacoes.jsx';
 
 const euro = (valor) =>
   Number(valor ?? 0).toLocaleString('pt-PT', {
@@ -22,11 +26,17 @@ const estados = {
 
 export default function SalaLeilao() {
   const { id } = useParams();
+  const socket = useSocket();
+  const { utilizador } = useAuth();
+
+  const [presenca, setPresenca] = useState(null);
+  const [ligado, setLigado] = useState(false);
 
   const [leilao, setLeilao] = useState(null);
   const [aCarregar, setACarregar] = useState(true);
   const [erro, setErro] = useState('');
   const [agora, setAgora] = useState(Date.now());
+  const [desvioRelogio, setDesvioRelogio] = useState(0);
 
   // Consultar os detalhes do leilão através da API REST
   useEffect(() => {
@@ -41,7 +51,31 @@ export default function SalaLeilao() {
         const dados = await api(`/auctions/${id}`);
 
         if (ativo) {
-          setLeilao(dados.leilao);
+          setLeilao(anterior => {
+            if (!anterior || String(anterior._id) !== id) {
+              return dados.leilao;
+            }
+
+            // Evitar perder uma licitação mais recente
+            // que tenha chegado primeiro pelo Socket.io.
+            const valorAnterior =
+              anterior.licitacaoAtual?.valor ?? -Infinity;
+
+            const valorRecebido =
+              dados.leilao.licitacaoAtual?.valor ?? -Infinity;
+
+            return {
+              ...dados.leilao,
+              licitacaoAtual:
+                valorAnterior > valorRecebido
+                  ? anterior.licitacaoAtual
+                  : dados.leilao.licitacaoAtual,
+              estado:
+                anterior.estado === 'terminado'
+                  ? 'terminado'
+                  : dados.leilao.estado
+            };
+          });
         }
       } catch (err) {
         if (ativo) {
@@ -63,14 +97,178 @@ export default function SalaLeilao() {
     };
   }, [id]);
 
-  // Atualizar a hora para refletir a passagem do tempo
+  // Ligar o utilizador à sala e acompanhar eventos em tempo real.
   useEffect(() => {
-    const intervalo = setInterval(() => {
-      setAgora(Date.now());
-    }, 1000);
+    setPresenca(null);
+    setLigado(Boolean(socket?.connected));
+
+    if (!socket) return undefined;
+
+    function entrar() {
+      setLigado(true);
+      socket.emit('entrar', id);
+    }
+
+    function desligar() {
+      setLigado(false);
+      setPresenca(null);
+    }
+
+    function receberPresenca(numero) {
+      if (Number.isInteger(numero) && numero >= 0) {
+        setPresenca(numero);
+      }
+    }
+
+    function receberEstado(dados) {
+      if (String(dados?._id) !== id) return;
+
+      setLeilao(anterior => {
+        if (anterior && String(anterior._id) !== id) {
+          return anterior;
+        }
+
+        const valorAnterior =
+          anterior?.licitacaoAtual?.valor ?? -Infinity;
+
+        const valorRecebido =
+          dados.licitacaoAtual?.valor ?? -Infinity;
+
+        return {
+          ...anterior,
+          ...dados,
+
+          // A API REST devolve produtor e produto preenchidos.
+          // O evento Socket.io pode devolver apenas os IDs.
+          produtor:
+            typeof dados.produtor === 'string' &&
+            anterior?.produtor &&
+            typeof anterior.produtor === 'object'
+              ? anterior.produtor
+              : dados.produtor,
+
+          produto:
+            typeof dados.produto === 'string' &&
+            anterior?.produto &&
+            typeof anterior.produto === 'object'
+              ? anterior.produto
+              : dados.produto,
+
+          licitacaoAtual:
+            valorAnterior > valorRecebido
+              ? anterior.licitacaoAtual
+              : dados.licitacaoAtual
+        };
+      });
+    }
+
+    function receberLicitacao(dados) {
+      if (String(dados?.leilaoId) !== id) return;
+
+      setLeilao(anterior => {
+        if (!anterior || String(anterior._id) !== id) {
+          return anterior;
+        }
+
+        return {
+          ...anterior,
+          licitacaoAtual: {
+            ...anterior.licitacaoAtual,
+            valor: dados.valor,
+            comprador: dados.comprador
+          }
+        };
+      });
+    }
+
+    function receberFim(dados) {
+      if (String(dados?.leilaoId) !== id) return;
+
+      setLeilao(anterior =>
+        anterior && String(anterior._id) === id
+          ? { ...anterior, estado: 'terminado' }
+          : anterior
+      );
+    }
+
+    socket.on('connect', entrar);
+    socket.on('disconnect', desligar);
+    socket.on('connect_error', desligar);
+    socket.on('presenca', receberPresenca);
+    socket.on('estado', receberEstado);
+    socket.on('nova-licitacao', receberLicitacao);
+    socket.on('leilao-terminado', receberFim);
+
+    // Se já estiver ligado, entrar imediatamente.
+    if (socket.connected) entrar();
+
+    return () => {
+      if (socket.connected) {
+        socket.emit('sair', id);
+      }
+
+      socket.off('connect', entrar);
+      socket.off('disconnect', desligar);
+      socket.off('connect_error', desligar);
+      socket.off('presenca', receberPresenca);
+      socket.off('estado', receberEstado);
+      socket.off('nova-licitacao', receberLicitacao);
+      socket.off('leilao-terminado', receberFim);
+    };
+  }, [socket, id]);
+
+  // Sincronizar com o servidor, compensando metade da latência.
+  useEffect(() => {
+    if (!socket) return undefined;
+
+    let ativo = true;
+
+    function sincronizarHora() {
+      if (!socket.connected) return;
+
+      const inicio = Date.now();
+
+      socket.timeout(4000).emit(
+        'sincronizar-hora',
+        (erro, resposta) => {
+          if (!ativo || erro || !Number.isFinite(resposta?.agora)) {
+            return;
+          }
+
+          const fim = Date.now();
+          const desvio = resposta.agora + (fim - inicio) / 2 - fim;
+
+          setDesvioRelogio(desvio);
+        }
+      );
+    }
+
+    socket.on('connect', sincronizarHora);
+
+    if (socket.connected) sincronizarHora();
+
+    // Corrigir eventuais desvios a cada 30 segundos.
+    const sincronizador = setInterval(sincronizarHora, 30000);
+
+    return () => {
+      ativo = false;
+      clearInterval(sincronizador);
+      socket.off('connect', sincronizarHora);
+    };
+  }, [socket]);
+
+  // Atualizar a contagem decrescente usando a hora sincronizada.
+  useEffect(() => {
+    function atualizarRelogio() {
+      setAgora(Date.now() + desvioRelogio);
+    }
+
+    atualizarRelogio();
+
+    const intervalo = setInterval(atualizarRelogio, 1000);
 
     return () => clearInterval(intervalo);
-  }, []);
+  }, [desvioRelogio]);
 
   if (aCarregar) {
     return <p>A carregar leilão...</p>;
@@ -110,6 +308,17 @@ export default function SalaLeilao() {
       : agora < inicio
         ? 'agendado'
         : 'ativo';
+
+  const segundosRestantes = Math.max(
+    0,
+    Math.ceil((fim - agora) / 1000)
+  );
+
+  const contagemRegressiva = [
+    Math.floor(segundosRestantes / 3600),
+    Math.floor((segundosRestantes % 3600) / 60),
+    segundosRestantes % 60
+  ].map(numero => String(numero).padStart(2, '0')).join(':');
 
   return (
     <>
@@ -207,6 +416,24 @@ export default function SalaLeilao() {
             {euro(valorAtual)}
           </p>
 
+          <p
+            className="texto-secundario small mb-3"
+            aria-live="polite"
+          >
+            {!socket
+              ? 'Inicia sessão para acompanhar o leilão em direto.'
+              : ligado
+                ? `Participantes em direto: ${presenca ?? 'a atualizar...'}`
+                : 'A ligar à sala do leilão...'}
+          </p>
+
+          {estadoApresentado === 'ativo' && (
+            <p className="mb-3" role="timer">
+              Termina em:{' '}
+              <strong>{contagemRegressiva}</strong>
+            </p>
+          )}
+
           {estadoApresentado === 'agendado' && (
             <div className="alert alert-info mb-0">
               Este leilão ainda não começou.
@@ -227,16 +454,34 @@ export default function SalaLeilao() {
           )}
 
           {estadoApresentado === 'ativo' && (
-            <div className="alert alert-info mb-0">
-              Este leilão está dentro do período previsto
-              de funcionamento.
-
-              <p className="mb-0 mt-2">
-                A funcionalidade de licitação em direto
-                será disponibilizada no Passo 7.
-              </p>
-            </div>
+            utilizador?.papel === 'comprador' ? (
+              <FormularioLicitacao
+                key={id}
+                leilaoId={id}
+                valorAtual={valorAtual}
+                incremento={leilao.incremento}
+                disponivel={ligado && presenca !== null}
+              />
+            ) : (
+              <div className="alert alert-info mb-0">
+                {utilizador
+                  ? 'Apenas compradores podem licitar.'
+                  : 'Inicia sessão como comprador para licitar.'}
+              </div>
+            )
           )}
+
+          <div className="mt-4 pt-3 border-top">
+            <HistoricoLicitacoes
+              leilaoId={id}
+              terminado={estadoApresentado === 'terminado'}
+              vencedorId={
+                leilao.licitacaoAtual?.comprador?._id ||
+                leilao.licitacaoAtual?.comprador
+              }
+              valorFinal={valorAtual}
+            />
+          </div>
         </aside>
       </div>
     </>

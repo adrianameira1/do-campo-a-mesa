@@ -10,6 +10,7 @@ const CATEGORIAS = ['Todos', 'Hortícolas', 'Fruta', 'Mel', 'Vinho', 'Queijo', '
 
 const FILTRO_INICIAL = {
   q: '',
+  localidade: '',
   categoria: 'Todos',
   bio: false,
   epoca: '',
@@ -36,6 +37,10 @@ export default function Catalogo() {
       const lista = produtosSimulados
         .filter((p) =>
           (filtro.categoria === 'Todos' || p.categoria === filtro.categoria) &&
+          (!filtro.localidade ||
+          (p.produtor?.produtor?.localidade || '')
+            .toLowerCase()
+            .includes(filtro.localidade.trim().toLowerCase())) &&
           (!filtro.bio || p.biologico) &&
           (!filtro.epoca || p.epocas?.includes(filtro.epoca)) &&
           (filtro.precoMax === '' || p.preco <= Number(filtro.precoMax)) &&
@@ -64,6 +69,9 @@ export default function Catalogo() {
     const parametros = new URLSearchParams();
 
     if (filtro.q) parametros.set('q', filtro.q);
+    if (filtro.localidade.trim()) {
+      parametros.set('localidade', filtro.localidade.trim());
+    }
     if (filtro.categoria !== 'Todos') {
       parametros.set('categoria', filtro.categoria);
     }
@@ -163,9 +171,23 @@ export default function Catalogo() {
             Só biológico
           </label>
         </div>
-
         <div className="row g-2">
-          <div className="col-12 col-md-4">
+
+          <div className="col-12 col-md-6 col-lg-3">
+            <label htmlFor="localidade" className="form-label">
+              Localidade do produtor
+            </label>
+            <input
+              id="localidade"
+              type="search"
+              className="form-control"
+              placeholder="Ex.: Ponte de Lima"
+              value={filtro.localidade}
+              onChange={mudar('localidade')}
+            />
+          </div>
+
+          <div className="col-12 col-md-6 col-lg-3">
             <label htmlFor="epoca" className="form-label">
               Época do ano
             </label>
@@ -183,7 +205,7 @@ export default function Catalogo() {
             </select>
           </div>
 
-          <div className="col-12 col-md-4">
+          <div className="col-12 col-md-6 col-lg-3">
             <label htmlFor="precoMax" className="form-label">
               Preço máximo (€)
             </label>
@@ -199,7 +221,7 @@ export default function Catalogo() {
             />
           </div>
 
-          <div className="col-12 col-md-4">
+          <div className="col-12 col-md-6 col-lg-3">
             <label htmlFor="ordenar" className="form-label">
               Ordenar por
             </label>
@@ -214,7 +236,9 @@ export default function Catalogo() {
               <option value="preco_desc">Preço: mais alto</option>
             </select>
           </div>
+
         </div>
+
 
         <button
           type="button"

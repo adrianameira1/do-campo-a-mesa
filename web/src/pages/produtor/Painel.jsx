@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { api } from '../../api/client.js';
+import { useEventoSocket } from '../../context/SocketContext.jsx';
+import PerfilExploracao from './PerfilExploracao.jsx';
+import MeusLeiloes from './MeusLeiloes.jsx';
 
 const PROXIMO_ESTADO = {
   pendente: {
@@ -57,7 +60,7 @@ export default function PainelProdutor() {
     try {
       const [listaProdutos, listaEncomendas, listaAvaliacoes] =
         await Promise.all([
-          api(`/products?produtor=${utilizador._id}`),
+          api('/products/mine', { token }),
           api('/orders', { token }),
           api(`/reviews?produtor=${utilizador._id}`)
         ]);
@@ -75,6 +78,22 @@ export default function PainelProdutor() {
   useEffect(() => {
     carregarDados();
   }, [carregarDados]);
+
+  // Atualizar automaticamente a lista quando chegar uma encomenda.
+  const atualizarEncomendas = useCallback(async () => {
+    if (!token) return;
+
+    try {
+      const lista = await api('/orders', { token });
+      setEncomendas(lista);
+    } catch (err) {
+      setErro(
+        err.message || 'Não foi possível atualizar as encomendas.'
+      );
+    }
+  }, [token]);
+
+  useEventoSocket('nova-encomenda', atualizarEncomendas);
 
   async function mudarEstado(encomenda) {
     const proximo = PROXIMO_ESTADO[encomenda.estado];
@@ -176,6 +195,7 @@ export default function PainelProdutor() {
         <p className="texto-secundario">A carregar painel...</p>
       ) : (
         <>
+          <PerfilExploracao />
           <section className="mb-5" aria-labelledby="titulo-indicadores">
             <h2 id="titulo-indicadores" className="h4 mb-3">
               Resumo da atividade
@@ -262,6 +282,12 @@ export default function PainelProdutor() {
                         <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
                           <h3 className="h5 mb-0">
                             Encomenda #{encomenda._id.slice(-6)}
+
+                            {encomenda.origem === 'leilao' && (
+                              <span className="badge text-bg-success ms-2">
+                                Leilão
+                              </span>
+                            )}
                           </h3>
 
                           <span className="badge text-bg-secondary">
@@ -331,6 +357,7 @@ export default function PainelProdutor() {
               </div>
             )}
           </section>
+          <MeusLeiloes />
         </>
       )}
     </>

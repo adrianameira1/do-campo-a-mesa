@@ -27,6 +27,7 @@ router.get('/', async (req, res, next) => {
   try {
     const {
       q,
+      localidade,
       categoria,
       precoMax,
       bio,
@@ -35,7 +36,9 @@ router.get('/', async (req, res, next) => {
       ordenar
     } = req.query;
 
-    const filtro = {};
+    const filtro = {
+      visivel: { $ne: false }
+    };
 
     // Pesquisa pelo nome do produto, ingrediente ou produtor
     if (typeof q === 'string' && q.trim()) {
@@ -55,6 +58,33 @@ router.get('/', async (req, res, next) => {
         { ingredientes: regex },
         { produtor: { $in: produtoresEncontrados } }
       ];
+    }
+
+    // Filtrar produtos pela localidade do produtor.
+    if (localidade !== undefined) {
+      if (typeof localidade !== 'string' || localidade.length > 100) {
+        return res.status(400).json({
+          erro: 'Localidade inválida'
+        });
+      }
+
+      const termo = localidade.trim();
+
+      if (termo) {
+        const produtoresLocais = await User.find({
+          papel: 'produtor',
+          'produtor.validado': true,
+          'produtor.localidade': {
+            $regex: escaparRegex(termo),
+            $options: 'i'
+          }
+        }).distinct('_id');
+
+        // Combinar com os outros filtros existentes.
+        filtro.$and = [
+          { produtor: { $in: produtoresLocais } }
+        ];
+      }
     }
 
     // Categoria
@@ -105,12 +135,40 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+/**
+ * GET /api/products/mine
+ * Consultar os produtos do produtor autenticado,
+ * incluindo os ocultados pela administração.
+ */
+router.get('/mine', auth('produtor'), async (req, res, next) => {
+  console.log('ENTROU EM PRODUCTS/MINE');
+  console.log('ID AUTENTICADO:', req.user?.id);
+
+  try {
+    const produtos = await Product.find({
+      produtor: req.user.id
+    })
+      .sort({ createdAt: -1 })
+      .populate(
+        'produtor',
+        'nome produtor.nomeExploracao produtor.localidade'
+      );
+
+    return res.status(200).json(produtos);
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 // GET /api/products/:id  -> 200 | 404
 
 router.get('/:id', async (req, res, next) => {
   try {
-    const produto = await Product.findById(req.params.id)
+    const produto = await Product.findOne({
+      _id: req.params.id,
+      visivel: { $ne: false }
+    })
       .populate(
         'produtor',
         'nome produtor.localidade produtor.nomeExploracao'

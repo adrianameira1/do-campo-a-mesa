@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { api } from '../../api/client.js';
+import { Link } from 'react-router-dom';
 
 const CATEGORIAS = [
   'Hortícolas',
@@ -16,6 +17,7 @@ const EPOCAS = ['Primavera', 'Verão', 'Outono', 'Inverno'];
 
 const FORMULARIO_INICIAL = {
   nome: '',
+  ingredientes: '',
   categoria: 'Hortícolas',
   preco: '',
   unidade: 'kg',
@@ -46,34 +48,29 @@ export default function Produtos() {
   const [erro, setErro] = useState('');
   const [mensagem, setMensagem] = useState('');
 
+
   const carregarProdutos = useCallback(async () => {
-    if (!utilizador?._id) {
+    if (!token || !utilizador?._id) {
       setProdutos([]);
       setACarregar(false);
       return;
     }
 
     setACarregar(true);
+    setErro('');
 
     try {
-      const lista = await api('/products');
+      const lista = await api('/products/mine', { token });
 
-      setProdutos(
-        lista.filter((produto) => {
-          const idProdutor =
-            typeof produto.produtor === 'object'
-              ? produto.produtor?._id
-              : produto.produtor;
-
-          return String(idProdutor) === String(utilizador._id);
-        })
-      );
+      setProdutos(lista);
     } catch (err) {
-      setErro(err.message);
+      setErro(err.message || 'Não foi possível carregar os produtos.');
     } finally {
       setACarregar(false);
     }
-  }, [utilizador?._id]);
+  }, [token, utilizador?._id]);
+
+
 
   useEffect(() => {
     carregarProdutos();
@@ -108,6 +105,7 @@ export default function Produtos() {
 
     setFormulario({
       nome: produto.nome || '',
+      ingredientes: (produto.ingredientes || []).join(', '),
       categoria: produto.categoria || 'Hortícolas',
       preco: String(produto.preco),
       unidade: produto.unidade || 'kg',
@@ -158,6 +156,16 @@ export default function Produtos() {
 
     const dados = {
       nome: formulario.nome.trim(),
+
+      ingredientes: [
+        ...new Set(
+          formulario.ingredientes
+            .split(',')
+            .map((ingrediente) => ingrediente.trim())
+            .filter(Boolean)
+        )
+      ],
+
       categoria: formulario.categoria,
       preco,
       unidade: formulario.unidade.trim() || 'kg',
@@ -236,7 +244,17 @@ export default function Produtos() {
 
   return (
     <>
-      <h1 className="mb-4">Gestão de produtos</h1>
+      <div className="mb-3">
+        <Link
+          to="/produtor"
+          className="btn btn-outline-secondary btn-sm"
+        >
+          ← Voltar ao painel
+        </Link>
+      </div>
+
+    <h1 className="mb-4">Gestão de produtos</h1>
+
 
       {erro && (
         <div className="alert alert-danger" role="alert">
@@ -291,6 +309,30 @@ export default function Produtos() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="col-12">
+                <label
+                  htmlFor="ingredientes"
+                  className="form-label"
+                >
+                  Ingredientes
+                </label>
+
+                <textarea
+                  id="ingredientes"
+                  className="form-control"
+                  rows={2}
+                  placeholder="Ex.: Leite, farinha, ovos, açúcar..."
+                  value={formulario.ingredientes}
+                  onChange={(e) =>
+                    mudar('ingredientes', e.target.value)
+                  }
+                />
+
+                <div className="form-text">
+                  Separa os ingredientes por vírgulas.
+                  Este campo é opcional.
+                </div>
               </div>
 
               <div className="col-12 col-md-4">
@@ -438,11 +480,19 @@ export default function Produtos() {
                   <div className="d-flex justify-content-between gap-2">
                     <h3 className="h5">{produto.nome}</h3>
 
-                    {produto.biologico && (
-                      <span className="badge text-bg-success">
-                        BIO
-                      </span>
-                    )}
+                    <div className="d-flex flex-wrap gap-2">
+                      {produto.biologico && (
+                        <span className="badge text-bg-success">
+                          BIO
+                        </span>
+                      )}
+
+                      {produto.visivel === false && (
+                        <span className="badge text-bg-danger">
+                          Ocultado pela administração
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <p className="texto-secundario small mb-2">
@@ -468,6 +518,12 @@ export default function Produtos() {
                       ? produto.epocas.join(', ')
                       : 'Não especificadas'}
                   </p>
+                  {produto.ingredientes?.length > 0 && (
+                    <p className="texto-secundario small">
+                      <strong>Ingredientes:</strong>{' '}
+                      {produto.ingredientes.join(', ')}
+                    </p>
+                  )}
 
                   <div className="d-flex gap-2 mt-auto">
                     <button

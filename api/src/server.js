@@ -5,6 +5,7 @@ const { Server } = require('socket.io');
 const app = require('./app');
 const { ligarBD } = require('./config/db');
 const registarSockets = require('./sockets');
+const sincronizarEstadosLeiloes = require('./services/estadoLeiloes');
 
 const PORT = process.env.PORT || 3000;
 
@@ -23,6 +24,29 @@ async function iniciar() {
   // Disponibiliza o io às rotas (ex.: notificar o comprador quando a encomenda muda)
   app.set('io', io);
   registarSockets(io);
+
+  // Verificar periodicamente o início e o fim dos leilões.
+  let sincronizacaoEmCurso = false;
+
+  async function atualizarLeiloes() {
+    if (sincronizacaoEmCurso) return;
+
+    sincronizacaoEmCurso = true;
+
+    try {
+      await sincronizarEstadosLeiloes(io);
+    } catch (err) {
+      console.error('Erro ao atualizar estados dos leilões:', err);
+    } finally {
+      sincronizacaoEmCurso = false;
+    }
+  }
+
+  // Corrigir estados desatualizados ao arrancar.
+  await atualizarLeiloes();
+
+  // Continuar a verificar enquanto o servidor está ativo.
+  setInterval(atualizarLeiloes, 5000);
 
   server.listen(PORT, () => {
     console.log(`API em http://localhost:${PORT}`);

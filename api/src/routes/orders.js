@@ -1,7 +1,6 @@
 // Encomendas
 const router = require('express').Router();
 const auth = require('../middleware/auth');
-const porFazer = require('./_naoImplementado');
 const { isValidObjectId } = require('mongoose');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
@@ -15,6 +14,7 @@ router.post('/', auth('comprador'), async (req, res, next) => {
 
   try {
     const { linhas, entrega } = req.body || {};
+    const tipoEntrega = entrega?.tipo ?? 'levantamento';
 
     // Validar o carrinho
     if (!Array.isArray(linhas) || linhas.length === 0) {
@@ -30,11 +30,10 @@ router.post('/', auth('comprador'), async (req, res, next) => {
         !entrega ||
         typeof entrega !== 'object' ||
         Array.isArray(entrega) ||
-        !['levantamento', 'entrega'].includes(
-          entrega.tipo || 'levantamento'
-        ) ||
+        !['levantamento', 'entrega'].includes(tipoEntrega)
+        ||
         (
-          entrega.tipo === 'entrega' &&
+          tipoEntrega === 'entrega' &&
           (
             typeof entrega.morada !== 'string' ||
             !entrega.morada.trim()
@@ -84,9 +83,11 @@ router.post('/', auth('comprador'), async (req, res, next) => {
 
       for (const [id, quantidade] of quantidades) {
         // Reservar stock de forma atómica
+        // Reservar stock apenas de produtos visíveis
         const produto = await Product.findOneAndUpdate(
           {
             _id: id,
+            visivel: { $ne: false },
             stock: { $gte: quantidade }
           },
           {
@@ -98,20 +99,31 @@ router.post('/', auth('comprador'), async (req, res, next) => {
           }
         );
 
+
         if (!produto) {
-          const existe = await Product.exists({
-            _id: id
-          }).session(session);
+          const existente = await Product.findById(id)
+            .select('visivel stock')
+            .session(session);
 
-          const erro = new Error(
-            existe
-              ? 'Stock insuficiente'
-              : 'Produto não encontrado'
-          );
+          let mensagem;
+          let estadoHTTP;
 
-          erro.status = existe ? 409 : 404;
+          if (!existente) {
+            mensagem = 'Produto não encontrado';
+            estadoHTTP = 404;
+          } else if (existente.visivel === false) {
+            mensagem = 'Produto indisponível para compra';
+            estadoHTTP = 409;
+          } else {
+            mensagem = 'Stock insuficiente';
+            estadoHTTP = 409;
+          }
+
+          const erro = new Error(mensagem);
+          erro.status = estadoHTTP;
           throw erro;
         }
+
 
         const produtorId = String(produto.produtor);
 
@@ -136,8 +148,11 @@ router.post('/', auth('comprador'), async (req, res, next) => {
           produtor: produtorId,
           linhas: linhasProdutor,
           estado: 'pendente',
-          entrega: entrega || {
-            tipo: 'levantamento'
+          entrega: {
+            tipo: tipoEntrega,
+            ...(tipoEntrega === 'entrega'
+              ? { morada: entrega.morada.trim() }
+              : {})
           }
         });
       }
@@ -148,6 +163,18 @@ router.post('/', auth('comprador'), async (req, res, next) => {
         ordered: true
       });
     });
+
+    // As encomendas já foram confirmadas no MongoDB.
+    // Avisar cada produtor através da sua sala pessoal.
+    const io = req.app.get('io');
+
+    for (const encomenda of encomendas) {
+      io?.to(`user:${encomenda.produtor}`).emit('nova-encomenda', {
+        id: encomenda._id.toString(),
+        total: encomenda.total,
+        origem: 'loja'
+      });
+    }
 
     res.status(201).json(encomendas);
 
@@ -224,6 +251,12 @@ router.get('/:id', auth(), async (req, res, next) => {
       });
     }
 
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({
+        erro: 'Identificador de encomenda inválido'
+      });
+    }
+
     const encomenda = await Order.findOne(filtro)
       .populate('comprador', 'nome email')
       .populate('produtor', 'nome produtor.nomeExploracao');
@@ -243,14 +276,15 @@ router.get('/:id', auth(), async (req, res, next) => {
 
 
 // PATCH /api/orders/:id/estado  (produtor)  -> 200
-// TODO (Passo 7): depois de gravar, notificar o comprador em tempo real:
-//   req.app.get('io').to(`user:${encomenda.comprador}`)
-//     .emit('encomenda-atualizada', { id: encomenda._id, estado: encomenda.estado });
-
 router.patch('/:id/estado', auth('produtor'), async (req, res, next) => {
   try {
     const { estado } = req.body || {};
     const estados = Order.ESTADOS;
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({
+        erro: 'Identificador de encomenda inválido'
+      });
+    }
 
     if (!estados.includes(estado)) {
       return res.status(400).json({
@@ -302,10 +336,17 @@ router.patch('/:id/estado', auth('produtor'), async (req, res, next) => {
       });
     }
 
-    res.status(200).json(atualizada);
+    // Informar o comprador apenas após a atualização na BD.
+    req.app.get('io')?.to(`user:${atualizada.comprador}`).emit(
+      'encomenda-atualizada',
+      {
+        id: atualizada._id.toString(),
+        estado: atualizada.estado,
+        produtor: req.user.nome || 'O produtor'
+      }
+    );
 
-    // TODO (Passo 7): emitir evento Socket.io
-    // 'encomenda-atualizada' para o comprador
+    res.status(200).json(atualizada);
 
   } catch (err) {
     next(err);
