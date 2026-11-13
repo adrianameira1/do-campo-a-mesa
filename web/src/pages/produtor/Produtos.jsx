@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { api } from '../../api/client.js';
+import { api, API_URL } from '../../api/client.js';
 import { Link } from 'react-router-dom';
 
 const CATEGORIAS = [
@@ -17,6 +17,7 @@ const EPOCAS = ['Primavera', 'Verão', 'Outono', 'Inverno'];
 
 const FORMULARIO_INICIAL = {
   nome: '',
+  descricao: '',
   ingredientes: '',
   categoria: 'Hortícolas',
   preco: '',
@@ -47,6 +48,10 @@ export default function Produtos() {
   const [produtoParaEliminar, setProdutoParaEliminar] = useState(null);
   const [erro, setErro] = useState('');
   const [mensagem, setMensagem] = useState('');
+  const [imagensSelecionadas, setImagensSelecionadas] = useState({});
+  const [imagemAGuardar, setImagemAGuardar] = useState(null);
+  const [ficheiroFormulario, setFicheiroFormulario] = useState(null);
+  const inputImagemFormulario = useRef(null);
 
 
   const carregarProdutos = useCallback(async () => {
@@ -93,6 +98,8 @@ export default function Produtos() {
   }
 
   function limparFormulario() {
+    setFicheiroFormulario(null);
+    if (inputImagemFormulario.current) inputImagemFormulario.current.value = '';
     setFormulario({
       ...FORMULARIO_INICIAL,
       epocas: []
@@ -101,10 +108,13 @@ export default function Produtos() {
   }
 
   function editar(produto) {
+    setFicheiroFormulario(null);
+    if (inputImagemFormulario.current) inputImagemFormulario.current.value = '';
     setProdutoEmEdicao(produto._id);
 
     setFormulario({
       nome: produto.nome || '',
+      descricao: produto.descricao || '',
       ingredientes: (produto.ingredientes || []).join(', '),
       categoria: produto.categoria || 'Hortícolas',
       preco: String(produto.preco),
@@ -118,6 +128,34 @@ export default function Produtos() {
     setMensagem('');
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function validarFicheiro(ficheiro) {
+    if (!ficheiro) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(ficheiro.type)) {
+      throw new Error('Seleciona uma imagem JPEG, PNG ou WebP.');
+    }
+    if (ficheiro.size > 5 * 1024 * 1024) {
+      throw new Error('A imagem não pode exceder 5 MB.');
+    }
+  }
+
+  async function carregarFotografia(produtoId, ficheiro) {
+    validarFicheiro(ficheiro);
+    const dados = new FormData();
+    dados.append('imagem', ficheiro);
+
+    const resposta = await fetch(`${API_URL}/api/products/${produtoId}/imagem`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: dados
+    });
+
+    const resultado = await resposta.json().catch(() => null);
+    if (!resposta.ok) {
+      throw new Error(resultado?.erro || `Erro ${resposta.status}`);
+    }
+    return resultado;
   }
 
   async function guardar(e) {
@@ -156,6 +194,7 @@ export default function Produtos() {
 
     const dados = {
       nome: formulario.nome.trim(),
+      descricao: formulario.descricao.trim(),
 
       ingredientes: [
         ...new Set(
@@ -174,9 +213,19 @@ export default function Produtos() {
       epocas: formulario.epocas
     };
 
+    try {
+      validarFicheiro(ficheiroFormulario);
+    } catch (err) {
+      setErro(err.message);
+      return;
+    }
+
     setAGuardar(true);
+    let produtoGuardado = false;
+    let mensagemErro = null;
 
     try {
+      let idProduto = produtoEmEdicao;
       if (produtoEmEdicao) {
         await api(`/products/${produtoEmEdicao}`, {
           metodo: 'PUT',
@@ -184,26 +233,65 @@ export default function Produtos() {
           token
         });
 
-        setMensagem('Produto atualizado com sucesso!');
       } else {
-        await api('/products', {
+        const criado = await api('/products', {
           metodo: 'POST',
           corpo: dados,
           token
         });
-
-        setMensagem('Produto criado com sucesso!');
+        idProduto = criado?._id || criado?.produto?._id || criado?.data?._id;
       }
 
+      produtoGuardado = true;
       limparFormulario();
-      await carregarProdutos();
+
+      if (ficheiroFormulario) {
+        if (!idProduto) {
+          throw new Error('O produto foi guardado, mas não foi possível identificar o produto para enviar a fotografia.');
+        }
+        await carregarFotografia(idProduto, ficheiroFormulario);
+      }
+
+      setMensagem(produtoEmEdicao
+        ? 'Produto atualizado com sucesso!'
+        : 'Produto criado com sucesso!');
     } catch (err) {
-      setErro(err.message || 'Não foi possível guardar o produto.');
+      if (produtoGuardado) {
+        mensagemErro = `O produto foi guardado, mas a fotografia não foi enviada: ${err.message}. Podes voltar a enviá-la no cartão do produto.`;
+      } else {
+        mensagemErro = err.message || 'Não foi possível guardar o produto.';
+      }
     } finally {
+      if (produtoGuardado) await carregarProdutos();
+      if (mensagemErro) setErro(mensagemErro);
       setAGuardar(false);
     }
   }
 
+
+  async function enviarImagem(produtoId) {
+    const ficheiro = imagensSelecionadas[produtoId];
+    if (!ficheiro || imagemAGuardar !== null) return;
+
+    setErro('');
+    setMensagem('');
+    setImagemAGuardar(produtoId);
+
+    try {
+      await carregarFotografia(produtoId, ficheiro);
+      setImagensSelecionadas((anterior) => {
+        const atualizadas = { ...anterior };
+        delete atualizadas[produtoId];
+        return atualizadas;
+      });
+      setMensagem('Fotografia guardada com sucesso!');
+      await carregarProdutos();
+    } catch (err) {
+      setErro(err.message || 'Não foi possível enviar a fotografia.');
+    } finally {
+      setImagemAGuardar(null);
+    }
+  }
 
   function pedirEliminacao(produto) {
     setProdutoParaEliminar(produto);
@@ -310,6 +398,26 @@ export default function Produtos() {
                   ))}
                 </select>
               </div>
+
+              <div className="col-12">
+                <label htmlFor="descricao" className="form-label">
+                  Descrição do produto
+                </label>
+
+                <textarea
+                  id="descricao"
+                  className="form-control"
+                  rows={3}
+                  placeholder="Descreve o produto, a sua origem ou características..."
+                  value={formulario.descricao}
+                  onChange={(e) => mudar('descricao', e.target.value)}
+                />
+
+                <div className="form-text">
+                  Campo opcional.
+                </div>
+              </div>
+
               <div className="col-12">
                 <label
                   htmlFor="ingredientes"
@@ -433,6 +541,23 @@ export default function Produtos() {
                   </div>
                 </fieldset>
               </div>
+
+              <div className="col-12">
+                <label htmlFor="fotografia-formulario" className="form-label">
+                  Fotografia do produto (opcional)
+                </label>
+                <input
+                  ref={inputImagemFormulario}
+                  id="fotografia-formulario"
+                  type="file"
+                  className="form-control"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => setFicheiroFormulario(e.target.files?.[0] || null)}
+                />
+                <div className="form-text">
+                  JPEG, PNG ou WebP, até 5 MB. A fotografia é enviada automaticamente ao guardar o produto.
+                </div>
+              </div>
             </div>
 
             <div className="d-flex flex-wrap gap-2 mt-4">
@@ -477,6 +602,61 @@ export default function Produtos() {
                 className="col-12 col-md-6 col-xl-4"
               >
                 <article className="card p-3 h-100">
+
+                {produto.imagemUrl && (
+                  <img
+                    src={produto.imagemUrl}
+                    alt={produto.nome}
+                    className="rounded mb-3"
+                    style={{
+                      width: '100%',
+                      height: '180px',
+                      objectFit: 'cover'
+                    }}
+                  />
+                )}
+
+                <div className="mb-3">
+                  <label
+                    htmlFor={`imagem-${produto._id}`}
+                    className="form-label fw-semibold"
+                  >
+                    {produto.imagemUrl
+                      ? 'Alterar fotografia'
+                      : 'Adicionar fotografia'}
+                  </label>
+
+                  <input
+                    id={`imagem-${produto._id}`}
+                    type="file"
+                    className="form-control form-control-sm"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={imagemAGuardar !== null}
+                    onChange={(e) => {
+                      const ficheiro = e.target.files?.[0];
+
+                      setImagensSelecionadas((anterior) => ({
+                        ...anterior,
+                        [produto._id]: ficheiro || null
+                      }));
+                    }}
+                  />
+
+                  <button
+                    type="button"
+                    className="btn btn-outline-success btn-sm mt-2"
+                    disabled={
+                      !imagensSelecionadas[produto._id] ||
+                      imagemAGuardar !== null
+                    }
+                    onClick={() => enviarImagem(produto._id)}
+                  >
+                    {imagemAGuardar === produto._id
+                      ? 'A enviar fotografia...'
+                      : 'Guardar fotografia'}
+                  </button>
+                </div>
+
                   <div className="d-flex justify-content-between gap-2">
                     <h3 className="h5">{produto.nome}</h3>
 
@@ -498,6 +678,11 @@ export default function Produtos() {
                   <p className="texto-secundario small mb-2">
                     {produto.categoria}
                   </p>
+                  {produto.descricao && (
+                    <p className="texto-secundario small mb-2">
+                      {produto.descricao}
+                    </p>
+                  )}
 
                   <p className="fw-bold mb-2">
                     {euro(produto.preco)} / {produto.unidade}

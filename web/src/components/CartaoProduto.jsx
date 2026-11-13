@@ -21,11 +21,17 @@ export default function CartaoProduto({ produto, onAdicionar }) {
       aria-label={`Ver detalhes de ${produto.nome}`}
       className="d-block"
     >
+      
       {produto.imagemUrl ? (
         <img
           src={produto.imagemUrl}
           className="card-img-top"
           alt={produto.nome}
+          style={{
+            width: '100%',
+            height: '180px',
+            objectFit: 'cover'
+          }}
         />
       ) : (
         <div
@@ -33,6 +39,7 @@ export default function CartaoProduto({ produto, onAdicionar }) {
           aria-hidden="true"
         />
       )}
+
     </Link>
 
 

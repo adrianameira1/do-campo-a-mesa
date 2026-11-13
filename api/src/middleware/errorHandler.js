@@ -3,6 +3,20 @@ module.exports = (err, req, res, next) => {
   // Registar o erro no servidor para diagnóstico
   console.error(err);
 
+    // Erros no upload de ficheiros (Multer)
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({
+        erro: 'A imagem não pode exceder 5 MB'
+      });
+    }
+
+    if (err.name === 'MulterError') {
+      return res.status(400).json({
+        erro: 'Erro no envio do ficheiro'
+      });
+    }
+
+
   // Chave duplicada no MongoDB (índice unique)
   if (err.code === 11000) {
     return res.status(409).json({
@@ -64,6 +78,6 @@ module.exports = (err, req, res, next) => {
   }
 
   return res.status(status).json({
-    erro: 'Pedido inválido'
+    erro: err.message || 'Pedido inválido'
   });
 };

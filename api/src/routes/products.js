@@ -3,8 +3,9 @@ const router = require('express').Router();
 const multer = require('multer');
 const Product = require('../models/Product');
 const auth = require('../middleware/auth');
-const porFazer = require('./_naoImplementado');
 const User = require('../models/User');
+const { guardarImagem } = require('../services/imagens');
+const { isValidObjectId } = require('mongoose');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -348,7 +349,80 @@ router.delete('/:id', auth('produtor'), async (req, res, next) => {
 
 
 // POST /api/products/:id/imagem  (multipart, campo "imagem")  -> 200 { imagemUrl }
-// TODO (Passo 8): usar services/imagens.js para enviar req.file para o storage da Cloud
-router.post('/:id/imagem', auth('produtor'), upload.single('imagem'), porFazer('Upload da imagem do produto'));
+
+router.post(
+  '/:id/imagem',
+  auth('produtor'),
+  async (req, res, next) => {
+    try {
+      if (!isValidObjectId(req.params.id)) {
+        return res.status(400).json({
+          erro: 'Identificador de produto inválido'
+        });
+      }
+
+      const produtor = await User.findOne({
+        _id: req.user.id,
+        papel: 'produtor',
+        'produtor.validado': true
+      });
+
+      if (!produtor) {
+        return res.status(403).json({
+          erro: 'Produtor não validado'
+        });
+      }
+
+      const produto = await Product.findOne({
+        _id: req.params.id,
+        produtor: req.user.id
+      });
+
+      if (!produto) {
+        return res.status(404).json({
+          erro: 'Produto não encontrado'
+        });
+      }
+
+      next();
+    } catch (err) {
+      next(err);
+    }
+  },
+  upload.single('imagem'),
+  async (req, res, next) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          erro: 'Seleciona uma imagem'
+        });
+      }
+
+      const imagemUrl = await guardarImagem(req.file, req);
+
+      const produto = await Product.findOneAndUpdate(
+        {
+          _id: req.params.id,
+          produtor: req.user.id
+        },
+        { $set: { imagemUrl } },
+        { new: true, runValidators: true }
+      );
+
+      if (!produto) {
+        return res.status(404).json({
+          erro: 'Produto não encontrado'
+        });
+      }
+
+      return res.status(200).json({
+        imagemUrl: produto.imagemUrl
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 
 module.exports = router;
