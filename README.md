@@ -1,157 +1,215 @@
-# Do Campo à Mesa · código base
+# Do Campo à Mesa
 
-Mercado digital de produtores locais com leilões em tempo real.
-Trabalho prático individual de **Desenvolvimento Web e para a Cloud** (MEI · IPVC–ESTG), 7 semanas.
+**Mercado digital de produtores locais com leilões em tempo real**  
+Trabalho prático individual de **Desenvolvimento Web e para a Cloud** — Mestrado em Engenharia Informática, ESTG–IPVC (2026/2027).
 
-Este repositório é um **ponto de partida**. A infraestrutura já está montada, com servidor, ligação à base de dados, routing, estilos, autenticação por token e sockets. As funcionalidades estão marcadas com `TODO (Passo N)`, e os endpoints por fazer respondem `501 Not Implemented`.
+O **Do Campo à Mesa** liga produtores agrícolas locais a compradores, permitindo consultar produtos, realizar encomendas, avaliar produtos e produtores e participar em leilões em direto. Inclui áreas distintas para visitantes, compradores, produtores e administradores.
 
-## Estrutura
+## Aplicação publicada
 
+| Serviço | Endereço |
+|---|---|
+| Aplicação web (React) | https://nice-smoke-032946d03.4.azurestaticapps.net |
+| API REST (Express) | https://dcm-adriana-api.onrender.com/api |
+| Documentação Swagger UI | https://dcm-adriana-api.onrender.com/api-docs |
+| Verificação da API | https://dcm-adriana-api.onrender.com/api/health |
+
+> **Nota:** a API está alojada num serviço Render gratuito, que pode demorar a responder ao primeiro pedido após um período de inatividade. As URLs devem permanecer acessíveis até à defesa do projeto.
+
+## Funcionalidades principais
+
+| Perfil | Funcionalidades |
+|---|---|
+| **Visitante** | Consultar o catálogo; pesquisar e filtrar produtos; consultar detalhes, produtores, avaliações e leilões; registar-se ou iniciar sessão. |
+| **Comprador** | Gerir carrinho; criar e acompanhar encomendas; escolher levantamento ou entrega; licitar em leilões ativos; receber notificações; avaliar produtos e produtores após entrega. |
+| **Produtor** | Gerir produtos, preços, stock e fotografias; editar os dados da exploração; gerir encomendas; criar e acompanhar leilões; consultar indicadores de atividade. |
+| **Administrador** | Consultar estatísticas globais; aprovar ou rejeitar produtores; moderar avaliações denunciadas; ocultar ou restaurar produtos. |
+
+Os leilões utilizam **Socket.io** para atualizar ofertas, participantes e estado em tempo real. O servidor valida as licitações e regista a licitação aceite e o respetivo histórico através de operações MongoDB transacionais. Quando um leilão termina com vencedor, o sistema cria uma encomenda associada ao lote.
+
+## Arquitetura e tecnologias
+
+```text
+Navegador
+    |
+    | HTTPS (REST/JSON) e Socket.io
+    v
+React + Vite — Azure Static Web Apps
+    |
+    v
+Node.js + Express + Socket.io — Render
+    |                          |
+    v                          v
+MongoDB Atlas              Azure Blob Storage
+(dados da aplicação)       (imagens dos produtos)
 ```
+
+- **Frontend:** React 18, Vite 5, React Router 6, Bootstrap 5 e SASS, com abordagem *Mobile First* e breakpoints de **768, 1024 e 1280 px**.
+- **Backend:** Node.js (20 ou superior), Express 4, API REST, Socket.io 4 e Swagger/OpenAPI 3.0.3.
+- **Dados:** MongoDB Atlas e Mongoose; coleções para utilizadores, produtos, encomendas, leilões, licitações e avaliações.
+- **Segurança:** autenticação JWT, passwords com hash bcrypt, autorização por papel e validações de dados no servidor.
+- **Cloud:** frontend em Azure Static Web Apps, API em Render, base de dados no MongoDB Atlas e imagens em Azure Blob Storage.
+
+A documentação detalhada das decisões de arquitetura, modelação e deployment encontra-se em [`docs/relatorio.md`](docs/relatorio.md) (relatório em revisão para a entrega).
+
+## Organização do repositório
+
+```text
 do-campo-a-mesa/
-├── api/                      Node.js · Express · MongoDB · Socket.io
-│   ├── openapi.yaml          Passo 5: especificação OpenAPI (Swagger UI em /api-docs)
-│   └── src/
-│       ├── server.js         HTTP + Socket.io
-│       ├── app.js            Express: middleware, rotas, Swagger
-│       ├── config/db.js      ligação ao MongoDB
-│       ├── middleware/       auth.js (JWT + papéis), errorHandler.js
-│       ├── models/           User, Product, Order, Auction, Bid, Review (Passo 4)
-│       ├── routes/           auth, products, producers, orders, auctions, reviews, admin (Passo 3)
-│       ├── sockets/          index.js (autenticação), leiloes.js (Passo 7)
-│       ├── services/         imagens.js: storage na Cloud (Passo 8)
-│       └── seed/seed.js      dados de exemplo
-├── web/                      React (Vite) · Bootstrap 5 · SASS
-│   └── src/
-│       ├── App.jsx           rotas (visitante, comprador, produtor, admin)
-│       ├── api/client.js     pedidos à API com o token JWT
-│       ├── context/          AuthContext, CarrinhoContext (estado global)
-│       ├── hooks/            useLeilao (Socket.io), useNotificacoes
-│       ├── components/       Navbar, CartaoProduto, EstadoEncomenda, RotaProtegida…
-│       ├── pages/            Catalogo, Produtor, Leiloes, SalaLeilao, Carrinho, Encomendas, …
-│       ├── styles/           _variables, _mixins (Mobile First), _catalogo, main.scss
-│       └── data/             produtos.json: dados simulados (semana 2)
-└── docs/
-    └── relatorio.md          estrutura sugerida para o relatório
+├── api/
+│   ├── openapi.yaml                 # Especificação OpenAPI
+│   ├── src/
+│   │   ├── app.js                  # Middleware, rotas e Swagger UI
+│   │   ├── server.js               # HTTP, Socket.io e ciclo dos leilões
+│   │   ├── config/                 # Ligação ao MongoDB
+│   │   ├── middleware/             # Autenticação, autorização e erros
+│   │   ├── models/                 # Modelos Mongoose
+│   │   ├── routes/                 # Endpoints REST
+│   │   ├── services/               # Licitações, encomendas, imagens, etc.
+│   │   ├── sockets/                # Eventos Socket.io e salas
+│   │   └── seed/                   # Dados de demonstração e verificações
+│   ├── test/
+│   │   ├── e2e.test.js             # API, concorrência e fecho do leilão
+│   │   └── e2e-extra.test.js       # Permissões, stock, avaliações e estados
+│   └── package.json
+├── web/
+│   ├── src/
+│   │   ├── api/                    # Cliente HTTP
+│   │   ├── components/             # Componentes reutilizáveis
+│   │   ├── context/                # Sessão, carrinho e Socket.io
+│   │   ├── hooks/                  # Hooks React reutilizáveis
+│   │   ├── pages/                  # Páginas públicas e por perfil
+│   │   ├── styles/                 # SASS e estilos responsivos
+│   │   ├── App.jsx                 # Rotas da SPA
+│   │   └── main.jsx                # Providers e arranque React
+│   └── package.json
+├── docs/
+│   └── relatorio.md
+└── README.md
 ```
 
-## Pré-requisitos
+## Requisitos para execução local
 
-- Node.js 20 ou superior
-- MongoDB local, ou um cluster gratuito no [MongoDB Atlas](https://www.mongodb.com/atlas)
+- **Node.js 20 ou superior**, npm e Git.
+- Acesso a uma instância MongoDB compatível com transações (por exemplo, MongoDB Atlas).
+- Credenciais de acesso ao MongoDB e um segredo JWT definido pelo responsável pela instalação.
+- Para **upload de imagens**, uma conta e um contentor Azure Blob Storage configurados.
 
-## Arranque
+### 1. Clonar e configurar a API
 
 ```bash
-# API
-cd api
-cp .env.example .env          # preencher MONGODB_URI e JWT_SECRET
-npm install
-npm run seed                  # opcional: dados de exemplo (password: password123)
-npm run dev                   # http://localhost:3000  ·  docs em /api-docs
-
-# SPA (noutro terminal)
-cd web
+git clone https://github.com/adrianameira1/do-campo-a-mesa.git
+cd do-campo-a-mesa/api
+npm ci
 cp .env.example .env
-npm install
-npm run dev                   # http://localhost:5173
 ```
 
-Com `VITE_USAR_DADOS_SIMULADOS=true`, o catálogo funciona sem API, a partir de `src/data/produtos.json`. Quando a API estiver pronta, mude para `false`.
+Editar `api/.env` de acordo com o exemplo incluído no repositório. As configurações usadas pelo backend incluem:
 
-### Utilizadores de exemplo (`npm run seed`)
+```dotenv
+PORT=3000
+MONGODB_URI=mongodb+srv://UTILIZADOR:PASSWORD@CLUSTER/BASE_DE_DADOS
+JWT_SECRET=DEFINIR_UM_SEGREDO_FORTE
+JWT_EXPIRES_IN=2h
+CLIENT_URL=http://localhost:5173
+# Para upload de imagens, configurar também as variáveis
+# STORAGE_CONN e STORAGE_CONTAINER conforme o .env.example.
+```
 
-Todos os utilizadores têm a password `password123`.
+> Os valores acima são **apenas exemplos**, não credenciais reais. Não publicar `.env`, passwords, chaves de armazenamento nem tokens. Não executar scripts de *seed* numa base com dados que se pretendam conservar.
 
-| Papel | Email |
-|---|---|
-| admin | admin@exemplo.pt |
-| produtor | horta@exemplo.pt |
-| produtor | mel@exemplo.pt |
-| comprador | tasca@exemplo.pt |
-
-O seed cria também 5 produtos e um leilão ativo com 30 minutos de duração.
-
-Atenção: o seed **apaga** as coleções de utilizadores, produtos e leilões antes de inserir os dados.
-
-### Verificar que está tudo a funcionar
-
-| Pedido | Resposta esperada |
-|---|---|
-| `GET http://localhost:3000/api/health` | `200 { "estado": "ok" }` |
-| `GET http://localhost:3000/api/products` | `200` com a lista de produtos |
-| `http://localhost:3000/api-docs` | Swagger UI |
-| `GET /api/admin/estatisticas` sem token | `401` (o middleware de autenticação está ativo) |
-| Endpoints ainda por implementar | `501 { "erro": "Por implementar", "descricao": "…" }` |
-
-## Notas da implementação
-
-### API (`api/`): Node.js · Express · MongoDB · Socket.io
-
-**Já funciona:**
-
-- arranque do servidor HTTP partilhado pela API REST e pelo Socket.io;
-- ligação ao MongoDB, configuração por `.env` (ver `.env.example`) e tratamento centralizado de erros (`400` para validação, `500` para o resto);
-- middleware `auth(...papeis)`: valida o token JWT e o papel do utilizador (`401` sem token, `403` sem permissão);
-- Swagger UI em `/api-docs`, com o recurso `/products` documentado como exemplo;
-- sockets: autenticação com o mesmo JWT da API, sala pessoal por utilizador, salas por leilão e contagem de participantes;
-- serviço de upload de imagens para Azure Blob Storage (`services/imagens.js`);
-- script `npm run seed` com dados de exemplo.
-
-**Base para rever:**
-
-- modelos User, Product, Order, Auction, Bid e Review, a rever no Passo 4 (embedding vs linking, índices).
-
-**Por fazer:**
-
-- as rotas estão todas definidas, mas só a pesquisa de produtos (`GET /api/products`) está implementada; as restantes respondem `501` com um comentário a explicar o que falta;
-- o registo e o login (Passo 6);
-- a licitação atómica nos leilões (Passo 7), com a solução indicada em comentário em `sockets/leiloes.js`.
-
-### SPA (`web/`): React (Vite) · Bootstrap 5 · SASS
-
-**Já funciona:**
-
-- rotas para os 4 intervenientes (visitante, comprador, produtor, administrador), com páginas protegidas por papel (`RotaProtegida`);
-- menu que se adapta ao utilizador autenticado;
-- estado global da sessão (`AuthContext`) e do carrinho (`CarrinhoContext`);
-- catálogo com dados simulados (pesquisa, categorias e filtro biológico); com `VITE_USAR_DADOS_SIMULADOS=false` passa a usar a API;
-- ligação em tempo real à sala de leilão (hook `useLeilao`);
-- SASS com as variáveis do tema, o mixin Mobile First `a-partir-de()` e a grelha do catálogo com 3 breakpoints (768, 1024 e 1280 px).
-
-**Por fazer:**
-
-- as páginas ainda por fazer mostram uma caixa tracejada **"Por implementar (Passo N)"** que diz o que falta.
-
-### Onde procurar o trabalho a fazer
-
-Há 25 marcadores `TODO (Passo N)` no código, ligados aos passos da apresentação. Para os listar todos:
+Iniciar a API:
 
 ```bash
-grep -rn "TODO" api/src api/openapi.yaml web/src
+npm run dev
 ```
 
-### Sugestão para distribuir o código
+A API fica, por defeito, em `http://localhost:3000`. A documentação local fica em `http://localhost:3000/api-docs` e o endpoint de diagnóstico em `http://localhost:3000/api/health`.
 
-Colocar este código num repositório GitHub marcado como **template**. Cada aluno cria a sua cópia com *Use this template*, partilha-a com o docente e trabalha nela durante as 7 semanas.
+### 2. Instalar e iniciar a SPA
 
-## O que já está feito e o que falta
+Noutro terminal:
 
-| Passo | Semana | Já feito | Por fazer (`TODO`) |
-|---|---|---|---|
-| 1 · Frontend | 1 | Bootstrap + SASS com variáveis, mixin `a-partir-de()` e grelha do catálogo | 3 breakpoints em todas as páginas, estilos dos ecrãs restantes |
-| 2 · SPA | 2 | Routing, rotas protegidas por papel, contexto do carrinho e da sessão, catálogo | Páginas do produtor, leilões, painéis |
-| 3 · API REST | 3 | Todas as rotas definidas; `GET /api/products` implementado | Restantes endpoints (respondem 501) |
-| 4 · MongoDB | 3 | Schemas base | Rever embedding vs linking, índices, avaliações |
-| 5 · Swagger | 4 | Swagger UI e documentação de `/products` | Documentar os restantes recursos |
-| 6 · Segurança | 4 | Middleware `auth(...papeis)` | Registo e login (bcrypt + JWT), formulários |
-| 7 · Tempo real | 5 | Autenticação dos sockets, salas, presença, hook `useLeilao` | Licitação atómica, contagem decrescente, notificações |
-| 8 · Cloud | 6 | Serviço de upload para Azure Blob Storage | Deployment (PaaS), variáveis de ambiente, HTTPS |
+```bash
+cd do-campo-a-mesa/web
+npm ci
+cp .env.example .env
+```
 
-Na semana 7 ficam os testes, o relatório (`docs/relatorio.md`) e o vídeo.
+Para ligar ao backend local, usar no `web/.env`:
 
-## Regras do repositório
+```dotenv
+VITE_API_URL=http://localhost:3000
+VITE_USAR_DADOS_SIMULADOS=false
+```
 
-- Faça *commits* pequenos e frequentes, com mensagens claras. O histórico é considerado na avaliação.
-- O ficheiro `.env` nunca vai para o Git; use `.env.example` como modelo.
-- Declare no relatório as bibliotecas e os assistentes de IA que usar.
+Depois:
+
+```bash
+npm run dev
+```
+
+Abrir o endereço indicado pelo Vite (habitualmente `http://localhost:5173`). A configuração de produção do frontend está em `web/.env.production` e aponta para a API pública do Render.
+
+### 3. Dados de demonstração (opcional)
+
+```bash
+cd api
+npm run seed
+```
+
+**Atenção:** consultar previamente [`api/src/seed/seed.js`](api/src/seed/seed.js) para compreender que coleções são modificadas. Executar apenas numa base de dados descartável/de desenvolvimento; não executar em produção ou na base dos testes E2E.
+
+## API REST e Swagger
+
+A especificação [`api/openapi.yaml`](api/openapi.yaml) contém **37 operações REST documentadas**, incluindo autenticação, catálogo, produtores, encomendas, leilões, avaliações, administração e upload de imagens.
+
+- **Swagger UI público:** https://dcm-adriana-api.onrender.com/api-docs
+- **Health check:** `GET /api/health`
+- **Produtos:** `GET /api/products`
+- **Leilões:** `GET /api/auctions`
+- **Autenticação:** `POST /api/auth/login` e `POST /api/auth/registo`
+
+As rotas protegidas exigem `Authorization: Bearer <token>`, conforme documentado no esquema `bearerAuth` do OpenAPI.
+
+A especificação foi validada com **Redocly CLI**, sem erros estruturais; subsistem quatro avisos não bloqueantes. Para repetir a validação:
+
+```bash
+npx --yes @redocly/cli@1 lint api/openapi.yaml
+```
+
+## Testes automatizados
+
+Na pasta `api/`, executar:
+
+```bash
+npm test
+```
+
+O projeto inclui **17 testes automatizados E2E** da API e do Socket.io, usando o test runner do Node.js e `socket.io-client`. A última execução registada passou com **17 aprovados e 0 falhados**.
+
+Os cenários incluem: autenticação e permissões; catálogo; reserva e insuficiência de stock; criação e progressão de encomendas; avaliações; aprovação administrativa; validação das licitações; concorrência entre dois compradores; rajada de dez licitações; e criação de uma única encomenda para o vencedor.
+
+### Isolamento da base de testes
+
+Antes de executar os testes, configurar no ficheiro local `api/.env` uma **URI exclusiva para testes**:
+
+```dotenv
+MONGODB_URI_TEST=mongodb+srv://UTILIZADOR:PASSWORD@CLUSTER/dcm_e2e_test?retryWrites=true&w=majority
+```
+
+O código dos testes verifica explicitamente o nome `dcm_e2e_test` e rejeita a mesma URI utilizada em `MONGODB_URI`. Os testes criam dados temporários e removem os documentos próprios. **Não apontar `MONGODB_URI_TEST` para a base de produção.**
+
+## Notas de segurança e deployment
+
+- As credenciais e cadeias de ligação pertencem às variáveis de ambiente dos serviços, nunca ao repositório.
+- As variáveis `VITE_` da SPA são incorporadas na compilação e **não devem conter segredos**.
+- As permissões são verificadas no backend, não apenas pelas rotas protegidas do React.
+- A API gratuita no Render pode entrar em suspensão e demorar a reativar.
+- O frontend e a API são serviços PaaS separados; o MongoDB Atlas é um serviço gerido e as imagens são guardadas em armazenamento de objetos na Cloud.
+
+## Entrega e demonstração
+
+O trabalho inclui código-fonte no GitHub, aplicação pública, Swagger UI, testes automatizados, relatório técnico (máximo de **20 páginas**) e vídeo demonstrativo (máximo de **5 minutos**). A defesa individual prevê apresentação e discussão do projeto.
+
+A utilização de ferramentas e assistentes de IA deve ser declarada no relatório, conforme o enunciado da unidade curricular.
