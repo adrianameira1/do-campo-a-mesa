@@ -266,3 +266,162 @@ test('Duas licitacoes simultaneas nao podem ser ambas aceites',
     assert.equal(encomendas[0].total, 105);
   }
 );
+
+
+test('Rajada de 10 licitacoes mantém o leilao consistente',
+  { timeout: 45000 },
+  async () => {
+    const marcador = new mongoose.Types.ObjectId().toString();
+    const passwordHash = await bcrypt.hash('TesteSeguro123!', 10);
+
+    let leilao;
+    let compradores = [];
+    let produtor;
+    const sockets = [];
+
+    try {
+      // Criar dois compradores independentes.
+      compradores = await User.create([
+        {
+          nome: 'Comprador Rajada A',
+          email: `rajada-a-${marcador}@example.invalid`,
+          passwordHash,
+          papel: 'comprador'
+        },
+        {
+          nome: 'Comprador Rajada B',
+          email: `rajada-b-${marcador}@example.invalid`,
+          passwordHash,
+          papel: 'comprador'
+        }
+      ]);
+
+      // Criar um produtor validado.
+      produtor = await User.create({
+        nome: 'Produtor Rajada',
+        email: `rajada-p-${marcador}@example.invalid`,
+        passwordHash,
+        papel: 'produtor',
+        produtor: {
+          nomeExploracao: 'Exploracao Rajada',
+          localidade: 'Barcelos',
+          validado: true
+        }
+      });
+
+      // Criar um leilão exclusivamente para este teste.
+      leilao = await Auction.create({
+        produtor: produtor._id,
+        lote: `Lote Rajada ${marcador}`,
+        quantidade: '1 kg',
+        precoBase: 100,
+        incremento: 5,
+        licitacaoAtual: { valor: 100 },
+        numLicitacoes: 0,
+        iniciaEm: new Date(Date.now() - 10000),
+        terminaEm: new Date(Date.now() + 120000),
+        estado: 'ativo'
+      });
+
+      const id = leilao._id.toString();
+
+      // Autenticar os dois compradores.
+      for (const comprador of compradores) {
+        const token = jwt.sign(
+          {
+            id: comprador._id.toString(),
+            papel: 'comprador'
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: '10m' }
+        );
+
+        const socket = await ligarSocket(token);
+        sockets.push(socket);
+        await entrar(socket, id);
+      }
+
+      const aceites = [];
+      const recusadas = [];
+
+      // Registar notificações dos dois clientes.
+      for (const socket of sockets) {
+        socket.on('nova-licitacao', dados => {
+          aceites.push(dados);
+        });
+
+        socket.on('recusada', mensagem => {
+          recusadas.push(mensagem);
+        });
+      }
+
+      // Enviar 10 licitações quase simultâneas.
+      // Todas têm exatamente o mesmo valor.
+      for (let i = 0; i < 10; i++) {
+        sockets[i % 2].emit('licitar', {
+          leilaoId: id,
+          valor: 105
+        });
+      }
+
+      // Aguardar as respostas do servidor.
+      await esperarAte(
+        () => recusadas.length >= 9 && aceites.length >= 2,
+        25000
+      );
+
+      // Consultar os dados persistidos no MongoDB.
+      const atualizado = await Auction.findById(id);
+
+      const historico = await Bid.find({
+        leilao: leilao._id
+      });
+
+      // Apenas uma oferta pode ganhar.
+      assert.equal(atualizado.licitacaoAtual.valor, 105);
+      assert.equal(atualizado.numLicitacoes, 1);
+      assert.equal(historico.length, 1);
+      assert.equal(historico[0].valor, 105);
+
+      // Os restantes nove pedidos devem ser recusados.
+      assert.equal(recusadas.length, 9);
+
+      // O evento aceite é transmitido aos dois clientes.
+      assert.equal(aceites.length, 2);
+
+      // Confirmar que ambas as notificações têm o mesmo valor.
+      assert.ok(aceites.every(dados => dados.valor === 105));
+
+      console.log(
+        'Rajada: 10 enviadas, 1 aceite, 9 recusadas'
+      );
+      console.log(
+        'MongoDB: 1 licitacao, contador = 1'
+      );
+
+    } finally {
+      // Desligar as ligações abertas neste teste.
+      for (const socket of sockets) {
+        socket.disconnect();
+      }
+
+      // Eliminar apenas os dados criados neste teste.
+      if (leilao) {
+        await Bid.deleteMany({ leilao: leilao._id });
+        await Order.deleteMany({ leilao: leilao._id });
+        await Auction.deleteOne({ _id: leilao._id });
+      }
+
+      if (produtor) {
+        await User.deleteOne({ _id: produtor._id });
+      }
+
+      if (compradores.length) {
+        await User.deleteMany({
+          _id: { $in: compradores.map(c => c._id) }
+        });
+      }
+    }
+  }
+);
+
