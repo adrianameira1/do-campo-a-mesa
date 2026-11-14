@@ -1,7 +1,7 @@
 # Do Campo à Mesa
 
 **Mercado digital de produtores locais com leilões em tempo real**  
-Trabalho prático individual de **Desenvolvimento Web e para a Cloud** — Mestrado em Engenharia Informática, ESTG–IPVC (2026/2027).
+Trabalho prático individual de **Desenvolvimento Web e Cloud** — Mestrado em Engenharia Informática, ESTG–IPVC (2026/2027).
 
 O **Do Campo à Mesa** liga produtores agrícolas locais a compradores, permitindo consultar produtos, realizar encomendas, avaliar produtos e produtores e participar em leilões em direto. Inclui áreas distintas para visitantes, compradores, produtores e administradores.
 

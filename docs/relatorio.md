@@ -1,6 +1,6 @@
 # Relatório · Do Campo à Mesa
 
-**Unidade curricular:** Desenvolvimento Web Cliente  
+**Unidade curricular:** Desenvolvimento Web e Cloud  
 **Projeto:** Do Campo à Mesa  
 **Autora:** Adriana Meira  
 **Versão:** relatório técnico — novembro de 2026
