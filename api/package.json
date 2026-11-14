@@ -8,9 +8,12 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node src/seed/seed.js",
-    "bd:verificar": "node src/seed/verificarBD.js"
+    "bd:verificar": "node src/seed/verificarBD.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@azure/storage-blob": "^12.24.0",
     "bcryptjs": "^2.4.3",
@@ -25,6 +28,7 @@
     "yamljs": "^0.3.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.7"
+    "nodemon": "^3.1.7",
+    "socket.io-client": "^4.8.4"
   }
 }
