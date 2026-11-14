@@ -244,7 +244,7 @@ Entre as limitações identificadas encontram-se a dependência da disponibilida
 
 Foram utilizadas tecnologias e ferramentas compatíveis com a implementação: React, Vite, React Router, Bootstrap, Sass, Node.js, Express, Socket.io, Mongoose/MongoDB Atlas, JWT, bcrypt, Swagger UI/OpenAPI, Redocly CLI, Git/GitHub, Azure Static Web Apps, Azure Blob Storage e Render. A verificação automatizada utilizou o *test runner* do Node.js e clientes Socket.io de teste.
 
-Durante o desenvolvimento foi utilizado o **ChatGPT como assistente de apoio técnico**, designadamente na análise do enunciado, organização do plano de implementação, esclarecimento de conceitos, revisão de código, apoio à preparação de testes, depuração e revisão da documentação. As sugestões foram avaliadas e testadas no projeto; a responsabilidade pela implementação, validação e entrega é da autora. A utilização de outras ferramentas de IA, caso tenha ocorrido, deve ser declarada pela autora na entrega.
+Durante o desenvolvimento foi utilizado o **ChatGPT como assistente de apoio técnico**, designadamente na análise do enunciado, organização do plano de implementação, esclarecimento de conceitos, revisão de código, apoio à preparação de testes, depuração e revisão da documentação. As sugestões foram avaliadas e testadas no projeto; a responsabilidade pela implementação, validação e entrega é da autora. 
 
 ## 11. Conclusão
 

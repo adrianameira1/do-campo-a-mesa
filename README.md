@@ -125,7 +125,7 @@ CLIENT_URL=http://localhost:5173
 # STORAGE_CONN e STORAGE_CONTAINER conforme o .env.example.
 ```
 
-> Os valores acima são **apenas exemplos**, não credenciais reais. Não publicar `.env`, passwords, chaves de armazenamento nem tokens. Não executar scripts de *seed* numa base com dados que se pretendam conservar.
+> Os valores acima são **apenas exemplos**, não credenciais reais. 
 
 Iniciar a API:
 
@@ -167,7 +167,6 @@ cd api
 npm run seed
 ```
 
-**Atenção:** consultar previamente [`api/src/seed/seed.js`](api/src/seed/seed.js) para compreender que coleções são modificadas. Executar apenas numa base de dados descartável/de desenvolvimento; não executar em produção ou na base dos testes E2E.
 
 ## API REST e Swagger
 
@@ -207,18 +206,11 @@ Antes de executar os testes, configurar no ficheiro local `api/.env` uma **URI e
 MONGODB_URI_TEST=mongodb+srv://UTILIZADOR:PASSWORD@CLUSTER/dcm_e2e_test?retryWrites=true&w=majority
 ```
 
-O código dos testes verifica explicitamente o nome `dcm_e2e_test` e rejeita a mesma URI utilizada em `MONGODB_URI`. Os testes criam dados temporários e removem os documentos próprios. **Não apontar `MONGODB_URI_TEST` para a base de produção.**
 
 ## Notas de segurança e deployment
 
-- As credenciais e cadeias de ligação pertencem às variáveis de ambiente dos serviços, nunca ao repositório.
-- As variáveis `VITE_` da SPA são incorporadas na compilação e **não devem conter segredos**.
+- As credenciais e cadeias de ligação pertencem às variáveis de ambiente dos serviços.
+- As variáveis `VITE_` da SPA são incorporadas na compilação.
 - As permissões são verificadas no backend, não apenas pelas rotas protegidas do React.
 - A API gratuita no Render pode entrar em suspensão e demorar a reativar.
 - O frontend e a API são serviços PaaS separados; o MongoDB Atlas é um serviço gerido e as imagens são guardadas em armazenamento de objetos na Cloud.
-
-## Entrega e demonstração
-
-O trabalho inclui código-fonte no GitHub, aplicação pública, Swagger UI, testes automatizados, relatório técnico (máximo de **20 páginas**) e vídeo demonstrativo (máximo de **5 minutos**). A defesa individual prevê apresentação e discussão do projeto.
-
-A utilização de ferramentas e assistentes de IA deve ser declarada no relatório, conforme o enunciado da unidade curricular.
