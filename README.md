@@ -50,7 +50,7 @@ MongoDB Atlas              Azure Blob Storage
 - **Segurança:** autenticação JWT, passwords com hash bcrypt, autorização por papel e validações de dados no servidor.
 - **Cloud:** frontend em Azure Static Web Apps, API em Render, base de dados no MongoDB Atlas e imagens em Azure Blob Storage.
 
-A documentação detalhada das decisões de arquitetura, modelação e deployment encontra-se em [`docs/relatorio.md`](docs/relatorio.md) (relatório em revisão para a entrega).
+A documentação detalhada das decisões de arquitetura, modelação e deployment encontra-se em [`docs/relatorio.md`](docs/relatorio.md) (relatório técnico do projeto).
 
 ## Organização do repositório
 
@@ -84,7 +84,16 @@ do-campo-a-mesa/
 │   │   └── main.jsx                # Providers e arranque React
 │   └── package.json
 ├── docs/
-│   └── relatorio.md
+├── relatorio.md
+└── imagens/
+    ├── arquitetura.png
+    ├── mongodb.png
+    ├── catalogo-desktop.png
+    ├── catalogo-mobile.png
+    ├── swagger.png
+    ├── testes.png
+    ├── azure-deployment.png
+    └── render-deployment.png
 └── README.md
 ```
 
